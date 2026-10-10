@@ -103,7 +103,8 @@ function resolveDesktopAppStageLabel(input: {
     return "Dev";
   }
 
-  return isNightlyDesktopVersion(input.appVersion) ? "Nightly" : "Alpha";
+  // Tea Tree (local fork build): labelled so it is never mistaken for the official app.
+  return isNightlyDesktopVersion(input.appVersion) ? "Nightly" : "TeaTree";
 }
 
 export function resolveDesktopAppBranding(input: {
