@@ -3,14 +3,22 @@
 > [!NOTE]
 > **This is Tea Tree Code: the Irish edition of T3 Code.** Say "T3" in a Dublin accent and you'll get it.
 > It's a personal fork of [pingdotgg/t3code](https://github.com/pingdotgg/t3code) that we build ourselves to try
-> changes before they land upstream. The `main` branch tracks upstream unchanged; this `tea-tree` branch carries the
-> extras. First up: desktop thread links (`t3code://threads/<environmentId>/<threadId>`), from upstream
-> [PR #8246](https://github.com/pingdotgg/t3code/pull/8246).
+> changes before they land upstream. The app it builds is labelled **T3 Code (TeaTree)**.
 >
-> Everything stays generic: nothing here is specific to any one tool, so it can all go back upstream. Build it with
-> `pnpm run dist:desktop:dmg:arm64` (Node 24, pnpm 11, Rust 1.95+). The app it makes replaces the official T3 Code
-> install, and the official auto-updater puts the official build back on its next update.
-> For the real thing, use [t3.codes](https://t3.codes).
+> - `main` tracks upstream unchanged.
+> - Feature branches, each a PR in this fork, and generic (nothing specific to any one tool):
+>   - `desktop-thread-links` (#1): the desktop app opens `t3code://threads/<environmentId>/<threadId>`
+>   - `settle-prompt` (#2): message on settle
+>   - `thread-badges` (#3): badges from outside tools on threads, with a needs-you mark
+> - `tea-tree` = upstream + those branches + local-only commits (the TeaTree label, this note, the build script).
+>
+> To rebuild on a new upstream release, run `scripts/tea-tree/build.sh [tag]`. It rebases the features, rebuilds
+> `tea-tree` and builds a DMG with a `-preview` version, which has no update feed, so the official updater won't
+> replace it. Needs Node 24, pnpm 11 and Rust 1.95+.
+>
+> Data: this build (like upstream `main`) keeps its own `statev2.sqlite`, seeded once from a read-only copy of the
+> official app's `state.sqlite`, which it never writes to. The two apps share `~/.t3/userdata` otherwise. Don't
+> run both at once.
 
 T3 Code is an "agent harness control surface". It enables control of the agents on your machine with a best-in-class mobile app ([iOS](https://apps.apple.com/us/app/t3-code-remote-claude-more/id6787819824), [Android](https://play.google.com/store/apps/details?id=com.t3tools.t3code)), [web app](https://app.t3.codes) and [Electron-based desktop app](https://t3.codes).
 
