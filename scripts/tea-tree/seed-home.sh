@@ -27,4 +27,4 @@ for d in secrets attachments themes; do
   [ -d "$SRC/$d" ] && cp -cRp "$SRC/$d" "$DEST/"
 done
 chmod -R go-rwx "$DEST"
-echo "Seeded $DEST from $SRC ($(sqlite3 "file:$DEST/state.sqlite?mode=ro" 'select count(*) from projection_threads where deleted_at is null') threads)."
+echo "Seeded $DEST from $SRC ($(sqlite3 "$DEST/state.sqlite" 'select count(*) from projection_threads where deleted_at is null') threads)."
