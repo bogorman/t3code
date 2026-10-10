@@ -16,9 +16,10 @@
 > `tea-tree` and builds a DMG with a `-preview` version, which has no update feed, so the official updater won't
 > replace it. Needs Node 24, pnpm 11 and Rust 1.95+.
 >
-> Data: this build (like upstream `main`) keeps its own `statev2.sqlite`, seeded once from a read-only copy of the
-> official app's `state.sqlite`, which it never writes to. The two apps share `~/.t3/userdata` otherwise. Don't
-> run both at once.
+> Data: TeaTree has its own bundle id (`com.t3tools.t3code.teatree`) and its own folder, `~/.t3-teatree`. Seed the
+> folder once with `scripts/tea-tree/seed-home.sh` (quit both apps first): it copies the official app's threads,
+> settings and sign-ins. After that the two apps never touch each other's files, so switching back is just opening
+> the official app. Threads started in one don't show in the other. Don't run both at once (same port).
 
 T3 Code is an "agent harness control surface". It enables control of the agents on your machine with a best-in-class mobile app ([iOS](https://apps.apple.com/us/app/t3-code-remote-claude-more/id6787819824), [Android](https://play.google.com/store/apps/details?id=com.t3tools.t3code)), [web app](https://app.t3.codes) and [Electron-based desktop app](https://t3.codes).
 

@@ -16,7 +16,9 @@ export function resolveDesktopBaseDir(input: {
   readonly t3Home: Option.Option<string>;
 }): string {
   return Option.getOrElse(normalizeConfiguredBaseDir(input.t3Home), () =>
-    input.joinPath(input.homeDirectory, ".t3"),
+    // Tea Tree (local fork build): its own data folder, seeded once from ~/.t3 by
+    // scripts/tea-tree/seed-home.sh, so the official app's files are never touched.
+    input.joinPath(input.homeDirectory, ".t3-teatree"),
   );
 }
 
