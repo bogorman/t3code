@@ -1115,6 +1115,12 @@ export const DesktopPreviewRecordingSaveInputSchema = Schema.Struct({
 export const SystemSettingsPaneSchema = Schema.Literals(["full-disk-access"]);
 export type SystemSettingsPane = typeof SystemSettingsPaneSchema.Type;
 
+/** A link to one thread: `t3code://threads/<environmentId>/<threadId>`. */
+export interface DesktopThreadLink {
+  readonly environmentId: string;
+  readonly threadId: string;
+}
+
 export interface DesktopBridge {
   getAppBranding: () => DesktopAppBranding | null;
   /** Absolute path of a dropped or picked file; absent on desktop builds predating it. */
@@ -1253,6 +1259,8 @@ export interface DesktopBridge {
   webLinks?: {
     setReady: (ready: boolean) => Promise<void>;
     onOpen: (listener: (url: string) => void) => () => void;
+    /** Thread links (`t3code://threads/<environmentId>/<threadId>`). Optional: older builds never send them. */
+    onOpenThread?: (listener: (link: DesktopThreadLink) => void) => () => void;
   };
   appActivation?: {
     setReady: (ready: boolean) => Promise<void>;

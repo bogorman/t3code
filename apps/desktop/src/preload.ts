@@ -296,6 +296,19 @@ contextBridge.exposeInMainWorld("desktopBridge", {
         ipcRenderer.removeListener(IpcChannels.WEB_LINK_OPEN_CHANNEL, wrappedListener);
       };
     },
+    onOpenThread: (listener) => {
+      const wrappedListener = (_event: Electron.IpcRendererEvent, link: unknown) => {
+        if (typeof link !== "object" || link === null) return;
+        const { environmentId, threadId } = link as Record<string, unknown>;
+        if (typeof environmentId === "string" && typeof threadId === "string") {
+          listener({ environmentId, threadId });
+        }
+      };
+      ipcRenderer.on(IpcChannels.THREAD_LINK_OPEN_CHANNEL, wrappedListener);
+      return () => {
+        ipcRenderer.removeListener(IpcChannels.THREAD_LINK_OPEN_CHANNEL, wrappedListener);
+      };
+    },
   },
   appActivation: {
     setReady: (ready) =>

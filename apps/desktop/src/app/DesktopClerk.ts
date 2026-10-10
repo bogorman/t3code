@@ -20,6 +20,7 @@ import * as ElectronWindow from "../electron/ElectronWindow.ts";
 import * as DesktopUserData from "./DesktopUserData.ts";
 import * as DesktopEnvironment from "./DesktopEnvironment.ts";
 import * as DesktopWebLinks from "./DesktopWebLinks.ts";
+import * as DesktopWindow from "../window/DesktopWindow.ts";
 
 declare const __T3CODE_BUILD_CLERK_PUBLISHABLE_KEY__: string | undefined;
 
@@ -58,6 +59,7 @@ export class DesktopClerk extends Context.Service<
       | ElectronApp.ElectronApp
       | ElectronWindow.ElectronWindow
       | DesktopWebLinks.DesktopWebLinks
+      | DesktopWindow.DesktopWindow
       | Scope.Scope
     >;
   }
@@ -131,6 +133,7 @@ export const make = Effect.gen(function* () {
       const electronApp = yield* ElectronApp.ElectronApp;
       const electronWindow = yield* ElectronWindow.ElectronWindow;
       const webLinks = yield* DesktopWebLinks.DesktopWebLinks;
+      const desktopWindow = yield* DesktopWindow.DesktopWindow;
       const context = yield* Effect.context<ElectronWindow.ElectronWindow>();
       const runPromise = Effect.runPromiseWith(context);
 
@@ -196,8 +199,30 @@ export const make = Effect.gen(function* () {
         void runPromise(webLinks.receive(url));
         return true;
       };
+      // t3code://threads/<environmentId>/<threadId> opens that thread. On macOS the app keeps
+      // running with no window, so open one the way a Dock click does; the link waits for it.
+      const threadScheme = ElectronProtocol.getDesktopScheme(environment.isDevelopment);
+      const openThreadLink = (url: string) => {
+        const link = DesktopWebLinks.parseThreadLink(url, threadScheme);
+        if (link === null) return false;
+        void runPromise(
+          webLinks
+            .receiveThread(link)
+            .pipe(
+              Effect.andThen(electronApp.whenReady),
+              Effect.andThen(desktopWindow.activate),
+              Effect.ignoreCause,
+            ),
+        );
+        return true;
+      };
       yield* electronApp.on("open-url", (event: { preventDefault: () => void }, url: string) => {
-        if (startProviderAuthHandoff(url) || resumeProviderAuth(url) || openWebLink(url))
+        if (
+          startProviderAuthHandoff(url) ||
+          resumeProviderAuth(url) ||
+          openWebLink(url) ||
+          openThreadLink(url)
+        )
           event.preventDefault();
       });
       // A browser opens HTML files too, which macOS hands over by path.

@@ -48,6 +48,7 @@ function threadShowingBrowser(
  * Opens each web link or HTML file the OS hands T3 Code as the default browser
  * (macOS). With a browser panel on screen the page opens as a new tab there;
  * otherwise it starts a thread without a project, its browser panel maximized.
+ * Thread links (`t3code://threads/<environmentId>/<threadId>`) open that thread.
  */
 export function DesktopWebLinkCoordinator() {
   const router = useRouter();
@@ -131,6 +132,12 @@ export function DesktopWebLinkCoordinator() {
     const unsubscribe = webLinks.onOpen((url) => {
       queueRef.current = queueRef.current.then(() => openLink(url)).catch(() => undefined);
     });
+    const unsubscribeThreads = webLinks.onOpenThread?.(({ environmentId, threadId }) => {
+      void router.navigate({
+        to: "/$environmentId/$threadId",
+        params: { environmentId, threadId },
+      });
+    });
     // Skip readiness if React runs cleanup before this subscription can receive links.
     queueMicrotask(() => {
       if (subscribed) void webLinks.setReady(true).catch(() => undefined);
@@ -139,8 +146,9 @@ export function DesktopWebLinkCoordinator() {
       subscribed = false;
       void webLinks.setReady(false).catch(() => undefined);
       unsubscribe();
+      unsubscribeThreads?.();
     };
-  }, [ready, webLinks]);
+  }, [ready, webLinks, router]);
 
   return null;
 }
