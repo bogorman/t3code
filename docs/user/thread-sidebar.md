@@ -64,6 +64,12 @@ scroll position instead of following the thread to its new place in the list.
 
 Pinning does not prevent automatic settlement. Settling a thread removes its pin.
 
+**Message on settle** in **Thread behavior** (per environment or project) sends a thread one more
+turn when it settles, by hand or automatically: for example a skill that summarises the work and
+reports what's left. The thread settles again when that turn ends, or after 10 minutes, when the
+turn is stopped. If the turn leaves the thread waiting on you (a question, an approval, a queued
+message), it stays active. Settle scripts run after that second settle. Empty sends nothing.
+
 On web and desktop, drag a thread between sections to change its state. Drag a thread up into
 the pinned section to pin it at the spot you drop it; drag a pinned thread down into the active
 list to unpin it. Dragging a thread onto the **Settled** header settles it, and dragging a settled

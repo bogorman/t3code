@@ -387,6 +387,14 @@ export const SETTINGS_SEARCH_ITEMS = [
     scope: "project-defaults",
   },
   {
+    id: "settle-prompt",
+    title: "Message on settle",
+    to: "/settings/general",
+    searchTerms: ["settle prompt skill wrap up summary command hook"],
+    requiresThreadAutoSettlement: true,
+    scope: "project-defaults",
+  },
+  {
     id: "thread-notifications",
     title: "Thread notifications",
     to: "/settings/general",
