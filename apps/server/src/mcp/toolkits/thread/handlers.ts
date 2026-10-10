@@ -6,8 +6,10 @@ import {
   type RunId,
   OrchestratorMcpFailure,
   type OrchestrationV2Command,
+  type ThreadBadgeInput,
 } from "@t3tools/contracts";
 import * as Effect from "effect/Effect";
+import * as McpInvocationContext from "../../McpInvocationContext.ts";
 import { modelSelectionCommandType } from "@t3tools/shared/model";
 
 import * as McpToolAccess from "../../McpToolAccess.ts";
@@ -74,6 +76,46 @@ const readQuestion = Effect.fn("mcp.readQuestion")(function* (input: {
 const writesThread = <P extends { readonly threadId?: ThreadId | undefined }, A, E, R>(
   handle: (params: P) => Effect.Effect<A, E, R>,
 ) => McpToolAccess.writesThreads((params: P) => [params.threadId], handle);
+
+/** Who a badge belongs to: the signed-in tool, or the thread's own agent. */
+const badgeSource = Effect.gen(function* () {
+  const scope = yield* McpInvocationContext.McpInvocationContext;
+  return scope.client?.label ?? (scope.thread === undefined ? "MCP client" : "Thread agent");
+});
+
+/** Sets (badge) or clears (null) one badge; a badge another tool set is left alone. */
+const setBadge = (
+  threadId: ThreadId | undefined,
+  key: string,
+  badge: Omit<ThreadBadgeInput, "key"> | null,
+) =>
+  Effect.gen(function* () {
+    const { threads, projection } = yield* readThread(threadId);
+    const source = yield* badgeSource;
+    const existing = (projection.thread.badges ?? []).find((item) => item.key === key);
+    if (existing !== undefined && existing.source !== source) {
+      return yield* new OrchestratorMcpFailure({
+        code: "invalid_request",
+        message: `The badge "${key}" on this thread belongs to ${existing.source}.`,
+      });
+    }
+    if (badge === null && existing === undefined) {
+      return yield* new OrchestratorMcpFailure({
+        code: "invalid_request",
+        message: `This thread has no badge "${key}".`,
+      });
+    }
+    return yield* threads
+      .dispatch({
+        type: "thread.badge.set",
+        commandId: yield* newCommandId(),
+        threadId: projection.thread.id,
+        key,
+        badge: badge === null ? null : { ...badge, key },
+        source,
+      })
+      .pipe(Effect.mapError(dispatchFailure));
+  });
 
 export const layer = McpToolAccess.toLayer(ThreadToolkit, {
   run_scheduled_task_now: McpToolAccess.writesEnvironment((input) =>
@@ -290,6 +332,10 @@ export const layer = McpToolAccess.toLayer(ThreadToolkit, {
       targetRunId: input.targetRunId,
     })),
   ),
+  t3_thread_badge_set: writesThread(({ threadId, key, ...badge }) =>
+    setBadge(threadId, key, badge),
+  ),
+  t3_thread_badge_clear: writesThread((input) => setBadge(input.threadId, input.key, null)),
   t3_thread_organize: writesThread((input) =>
     Effect.gen(function* () {
       const { threads, projection, caller } = yield* readThread(input.threadId);

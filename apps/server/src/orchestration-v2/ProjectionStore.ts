@@ -716,6 +716,7 @@ export function applyToProjection(
     case "thread.snoozed":
     case "thread.unsnoozed":
     case "thread.auto-settle-set":
+    case "thread.badges-updated":
     case "thread.pinned":
     case "thread.unpinned":
     case "thread.pin-reordered":
@@ -1460,6 +1461,7 @@ export function threadShellFromProjection(
     branch: projection.thread.branch,
     worktreePath: projection.thread.worktreePath,
     pullRequests: threadPullRequestsOf(projection.thread),
+    ...(projection.thread.badges === undefined ? {} : { badges: projection.thread.badges }),
     ...(projection.thread.linkedPullRequest === undefined
       ? {}
       : { linkedPullRequest: projection.thread.linkedPullRequest }),
@@ -1728,6 +1730,7 @@ function shellFromState(input: {
     branch: input.state.thread.branch,
     worktreePath: input.state.thread.worktreePath,
     pullRequests: threadPullRequestsOf(input.state.thread),
+    ...(input.state.thread.badges === undefined ? {} : { badges: input.state.thread.badges }),
     ...(input.state.thread.linkedPullRequest === undefined
       ? {}
       : { linkedPullRequest: input.state.thread.linkedPullRequest }),
@@ -1821,6 +1824,7 @@ export const layer: Layer.Layer<ProjectionStoreV2, never, SqlClient.SqlClient> =
           case "thread.snoozed":
           case "thread.unsnoozed":
           case "thread.auto-settle-set":
+          case "thread.badges-updated":
           case "thread.pinned":
           case "thread.unpinned":
           case "thread.pin-reordered":
@@ -2653,6 +2657,7 @@ export const layer: Layer.Layer<ProjectionStoreV2, never, SqlClient.SqlClient> =
           event.type !== "thread.snoozed" &&
           event.type !== "thread.unsnoozed" &&
           event.type !== "thread.auto-settle-set" &&
+          event.type !== "thread.badges-updated" &&
           event.type !== "thread.pinned" &&
           event.type !== "thread.unpinned" &&
           event.type !== "thread.pin-reordered" &&

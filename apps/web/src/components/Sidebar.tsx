@@ -173,6 +173,7 @@ import type { SidebarThreadSummary } from "../types";
 import { isScratchProject } from "@t3tools/client-runtime/state/projects";
 import type { EnvironmentProject } from "@t3tools/client-runtime/state/shell";
 import { cn } from "~/lib/utils";
+import { ThreadBadges } from "./ThreadBadges";
 import { EnvironmentMachineIcon } from "./EnvironmentMachineIcon";
 import { ProjectEnvironmentBadge } from "./ProjectEnvironmentBadge";
 import {
@@ -1845,6 +1846,11 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: {
               remain visible AND clickable while the row is hovered. Only
               the time/jump label yields to the settle affordance. */}
             {prBadge}
+            <ThreadBadges
+              badges={thread.badges}
+              threadRef={threadRef}
+              settled={thread.settledOverride === "settled"}
+            />
             {sortable?.isDragging ? (
               dragDestination
             ) : (
@@ -2184,6 +2190,11 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: {
               )}
               {terminalStatusIcon}
               {prBadge}
+              <ThreadBadges
+                badges={thread.badges}
+                threadRef={threadRef}
+                settled={thread.settledOverride === "settled"}
+              />
               {diff ? (
                 <span className="shrink-0 font-mono">
                   <span className="text-diff-addition-foreground">+{diff.insertions}</span>{" "}

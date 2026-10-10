@@ -20,6 +20,7 @@ import {
   ORCHESTRATION_V2_WORKSPACE_PREPARATION_FAILURE_CODE,
   type ChatAttachment,
   CommandId,
+  MAX_THREAD_BADGES,
   isProviderNativeSubagentThread,
   MessageId,
   type NodeId,
@@ -439,6 +440,7 @@ function commandThreadId(command: OrchestrationV2ServerCommand): ThreadId {
     case "thread.snooze":
     case "thread.unsnooze":
     case "thread.auto-settle.set":
+    case "thread.badge.set":
     case "thread.pin":
     case "thread.unpin":
     case "thread.pin.reorder":
@@ -2379,6 +2381,7 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
           | "thread.snooze"
           | "thread.unsnooze"
           | "thread.auto-settle.set"
+          | "thread.badge.set"
           | "thread.pin"
           | "thread.unpin"
           | "thread.pin.reorder"
@@ -2517,6 +2520,7 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
         command.type === "thread.snooze" ||
         command.type === "thread.unsnooze" ||
         command.type === "thread.auto-settle.set" ||
+        command.type === "thread.badge.set" ||
         command.type === "thread.pin" ||
         command.type === "thread.unpin" ||
         command.type === "thread.pin.reorder" ||
@@ -2528,6 +2532,18 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
         commandId: command.commandId,
         commandType: command.type,
         cause: `Thread ${command.threadId} is archived.`,
+      });
+    }
+    if (
+      command.type === "thread.badge.set" &&
+      command.badge !== null &&
+      !(thread.badges ?? []).some((badge) => badge.key === command.key) &&
+      (thread.badges ?? []).length >= MAX_THREAD_BADGES
+    ) {
+      return yield* new OrchestratorDispatchError({
+        commandId: command.commandId,
+        commandType: command.type,
+        cause: `Thread ${command.threadId} already has ${MAX_THREAD_BADGES} badges.`,
       });
     }
     // Only pinned threads have a slot in the arranged order. Rejecting
@@ -2782,6 +2798,7 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
             archivedAt: now,
             titleRegeneration: null,
             pullRequests: thread.pullRequests?.map((link) => withPullRequestWatch(link, undefined)),
+            badges: [],
             updatedAt: now,
           };
         case "thread.unarchive":
@@ -2836,6 +2853,27 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
             snoozedAt: null,
             lastSnoozeWakeAt: alreadyAwake ? thread.lastSnoozeWakeAt : now,
             updatedAt: alreadyAwake ? thread.updatedAt : now,
+          };
+        }
+        case "thread.badge.set": {
+          const others = (thread.badges ?? []).filter((badge) => badge.key !== command.key);
+          if (command.badge === null) {
+            return others.length === (thread.badges ?? []).length
+              ? thread
+              : { ...thread, badges: others };
+          }
+          // Badges are the tool's annotation, not thread activity: updatedAt stays.
+          return {
+            ...thread,
+            badges: [
+              ...others,
+              {
+                ...command.badge,
+                key: command.key,
+                source: command.source,
+                updatedAt: DateTime.formatIso(now),
+              },
+            ],
           };
         }
         case "thread.auto-settle.set": {
@@ -3200,6 +3238,8 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
           return "thread.unsnoozed" as const;
         case "thread.auto-settle.set":
           return "thread.auto-settle-set" as const;
+        case "thread.badge.set":
+          return "thread.badges-updated" as const;
         case "thread.pin":
           return "thread.pinned" as const;
         case "thread.unpin":
@@ -10450,6 +10490,7 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
       case "thread.snooze":
       case "thread.unsnooze":
       case "thread.auto-settle.set":
+      case "thread.badge.set":
       case "thread.pin":
       case "thread.unpin":
       case "thread.pin.reorder":
