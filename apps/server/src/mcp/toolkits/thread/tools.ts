@@ -18,6 +18,7 @@ import {
   RunId,
   NonNegativeInt,
   ProjectId,
+  ThreadBadgeInput,
 } from "@t3tools/contracts";
 import * as Crypto from "effect/Crypto";
 import * as Schema from "effect/Schema";
@@ -60,6 +61,40 @@ const ThreadOrganizeTool = Tool.make("t3_thread_organize", {
 })
   .annotate(Tool.Title, "Organize a thread")
   .annotate(Tool.Destructive, true);
+
+const ThreadBadgeSetTool = Tool.make("t3_thread_badge_set", {
+  description:
+    "Put a small badge on a thread, shown beside its pull request badge: a label or count, an icon, a tooltip and a link the user can click (http(s) or t3code://). Set needsYou to a short reason to mark the thread as needing the user. One badge per key; setting the same key replaces it, and a count of 0 hides it. You can only change badges you set. At most 3 per thread. Omit threadId for this thread.",
+  parameters: Schema.Struct({
+    threadId: Schema.optional(ThreadId),
+    ...ThreadBadgeInput.fields,
+  }),
+  success: OrchestrationV2DispatchCommandResult,
+  failure: OrchestratorMcpFailure,
+  failureMode: "return" as const,
+  dependencies: [
+    McpInvocationContext.McpInvocationContext,
+    ThreadManagementService.ThreadManagementService,
+    Crypto.Crypto,
+  ],
+}).annotate(Tool.Title, "Set a thread badge");
+
+const ThreadBadgeClearTool = Tool.make("t3_thread_badge_clear", {
+  description:
+    "Remove a badge you put on a thread with t3_thread_badge_set, which also clears its needs-you mark. Omit threadId for this thread.",
+  parameters: Schema.Struct({
+    threadId: Schema.optional(ThreadId),
+    key: ThreadBadgeInput.fields.key,
+  }),
+  success: OrchestrationV2DispatchCommandResult,
+  failure: OrchestratorMcpFailure,
+  failureMode: "return" as const,
+  dependencies: [
+    McpInvocationContext.McpInvocationContext,
+    ThreadManagementService.ThreadManagementService,
+    Crypto.Crypto,
+  ],
+}).annotate(Tool.Title, "Clear a thread badge");
 
 const queueTarget = { threadId: Schema.optional(ThreadId), queuedRunId: RunId };
 const commandTool = {
@@ -283,6 +318,8 @@ export const ThreadToolkit = Toolkit.make(
   PendingRequestReadTool,
   PendingRequestRespondTool,
   ThreadOrganizeTool,
+  ThreadBadgeSetTool,
+  ThreadBadgeClearTool,
   QueueListTool,
   QueueReadTool,
   QueueEditTool,

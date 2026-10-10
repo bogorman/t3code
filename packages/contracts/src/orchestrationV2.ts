@@ -53,6 +53,7 @@ import {
   ThreadPullRequestStack,
   ThreadPullRequestWatch,
 } from "./threadPullRequest.ts";
+import { ThreadBadge, ThreadBadgeInput } from "./threadBadge.ts";
 import {
   ProviderApprovalDecision,
   ProviderApprovalOption,
@@ -376,6 +377,8 @@ export const OrchestrationV2AppThread = Schema.Struct({
       pre-linking servers still decode. */
   linkedPullRequest: Schema.optional(Schema.NullOr(ThreadLinkedPullRequest)),
   pullRequests: Schema.optional(Schema.Array(ThreadPullRequestLink)),
+  /** Badges outside tools put on the thread; optional so older payloads still decode. */
+  badges: Schema.optional(Schema.Array(ThreadBadge)),
   /** Pull request discovered from the thread's current branch. */
   branchPullRequest: Schema.optional(Schema.NullOr(ThreadLinkedPullRequest)),
   activeProviderThreadId: Schema.NullOr(ProviderThreadId),
@@ -1758,6 +1761,7 @@ export const OrchestrationV2DomainEvent = Schema.Union([
       "thread.marked-unread",
       "thread.metadata-updated",
       "thread.pull-request-synced",
+      "thread.badges-updated",
       "thread.runtime-mode-updated",
       "thread.interaction-mode-updated",
       "thread.model-selection-updated",
@@ -1938,6 +1942,8 @@ export const OrchestrationV2ThreadShell = Schema.Struct({
   /** Pull request the user linked to this thread (#8160). */
   linkedPullRequest: Schema.optional(Schema.NullOr(ThreadLinkedPullRequest)),
   pullRequests: Schema.optional(Schema.Array(ThreadPullRequestLink)),
+  /** Badges outside tools put on the thread; optional so older payloads still decode. */
+  badges: Schema.optional(Schema.Array(ThreadBadge)),
   /** Pull request discovered from the thread's current branch. */
   branchPullRequest: Schema.optional(Schema.NullOr(ThreadLinkedPullRequest)),
   lineage: OrchestrationV2AppThreadLineage,
@@ -2577,6 +2583,7 @@ export const OrchestrationV2DomainEventJson = Schema.Union([
       "thread.visited",
       "thread.marked-unread",
       "thread.pull-request-synced",
+      "thread.badges-updated",
       "thread.metadata-updated",
       "thread.runtime-mode-updated",
       "thread.interaction-mode-updated",
@@ -3160,6 +3167,16 @@ export type OrchestrationV2Command = typeof OrchestrationV2Command.Type;
  * send them.
  */
 const OrchestrationV2InternalCommand = Schema.Union([
+  Schema.Struct({
+    // Server-only: the MCP badge tools dispatch it with the signed-in tool as source.
+    // Set (badge) or clear (null) one badge an outside tool keeps on a thread.
+    type: Schema.Literal("thread.badge.set"),
+    commandId: CommandId,
+    threadId: ThreadId,
+    key: ThreadBadgeInput.fields.key,
+    badge: Schema.NullOr(ThreadBadgeInput),
+    source: TrimmedNonEmptyString,
+  }),
   /**
    * Records what a pull request watch saw, and wakes the agent in the same transaction when
    * `wake` is set. Rejected once the watch started at `startedAt` has ended, and a wake is
