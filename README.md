@@ -1,5 +1,17 @@
 # T3 Code
 
+> [!NOTE]
+> **This is Tea Tree Code: the Irish edition of T3 Code.** Say "T3" in a Dublin accent and you'll get it.
+> It's a personal fork of [pingdotgg/t3code](https://github.com/pingdotgg/t3code) that we build ourselves to try
+> changes before they land upstream. The `main` branch tracks upstream unchanged; this `tea-tree` branch carries the
+> extras. Right now that's desktop thread links (`t3code://threads/<environmentId>/<threadId>`), from upstream
+> [PR #8246](https://github.com/pingdotgg/t3code/pull/8246).
+>
+> Everything stays generic: nothing here is specific to any one tool, so it can all go back upstream. Build it with
+> `pnpm run dist:desktop:dmg:arm64` (Node 24, pnpm 11, Rust 1.95+). The app it makes replaces the official T3 Code
+> install, and the official auto-updater puts the official build back on its next update.
+> For the real thing, use [t3.codes](https://t3.codes).
+
 T3 Code is an "agent harness control surface". It enables control of the agents on your machine with a best-in-class mobile app ([iOS](https://apps.apple.com/us/app/t3-code-remote-claude-more/id6787819824), [Android](https://play.google.com/store/apps/details?id=com.t3tools.t3code)), [web app](https://app.t3.codes) and [Electron-based desktop app](https://t3.codes).
 
 Works with your subscriptions on Claude Code, Codex, Cursor, Grok Build, OpenCode, and Google Antigravity. If they're set up on your computer, T3 Code can control them.
