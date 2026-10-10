@@ -16,6 +16,8 @@
 > `tea-tree` and builds a DMG with a `-preview` version, which has no update feed, so the official updater won't
 > replace it. Needs Node 24, pnpm 11 and Rust 1.95+.
 >
+> Full notes (build, install, data, switching back, risks): `scripts/tea-tree/NOTES.md`.
+>
 > Data: TeaTree has its own bundle id (`com.t3tools.t3code.teatree`) and its own folder, `~/.t3-teatree`. Seed the
 > folder once with `scripts/tea-tree/seed-home.sh` (quit both apps first): it copies the official app's threads,
 > settings and sign-ins. After that the two apps never touch each other's files, so switching back is just opening
