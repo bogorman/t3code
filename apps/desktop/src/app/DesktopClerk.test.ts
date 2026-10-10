@@ -38,12 +38,19 @@ import * as DesktopClerk from "./DesktopClerk.ts";
 import * as DesktopWebLinks from "./DesktopWebLinks.ts";
 import * as DesktopEnvironment from "./DesktopEnvironment.ts";
 import * as DesktopPreReadyFileSystem from "./DesktopPreReadyFileSystem.ts";
+import * as DesktopWindow from "../window/DesktopWindow.ts";
 
 /** Clerk forwards web links; tests that are not about links ignore them. */
 const ignoreWebLinks = DesktopWebLinks.DesktopWebLinks.of({
   receive: () => Effect.void,
+  receiveThread: () => Effect.void,
   setRendererReady: () => Effect.void,
 });
+
+/** Thread links open a window; tests that are not about that never need one. */
+const noDesktopWindow = {
+  activate: Effect.void,
+} as unknown as DesktopWindow.DesktopWindow["Service"];
 
 const layerDesktopClerk = (
   isDevelopment = true,
@@ -233,6 +240,7 @@ describe("DesktopClerk", () => {
       Effect.provideService(ElectronApp.ElectronApp, electronApp),
       Effect.provideService(ElectronWindow.ElectronWindow, electronWindow),
       Effect.provideService(DesktopWebLinks.DesktopWebLinks, ignoreWebLinks),
+      Effect.provideService(DesktopWindow.DesktopWindow, noDesktopWindow),
     );
   });
 
@@ -262,6 +270,7 @@ describe("DesktopClerk", () => {
       Effect.provideService(ElectronApp.ElectronApp, electronApp),
       Effect.provideService(ElectronWindow.ElectronWindow, electronWindow),
       Effect.provideService(DesktopWebLinks.DesktopWebLinks, ignoreWebLinks),
+      Effect.provideService(DesktopWindow.DesktopWindow, noDesktopWindow),
     );
   });
 });
@@ -309,6 +318,7 @@ it.effect(
       Effect.provideService(ElectronApp.ElectronApp, electronApp),
       Effect.provideService(ElectronWindow.ElectronWindow, electronWindow),
       Effect.provideService(DesktopWebLinks.DesktopWebLinks, ignoreWebLinks),
+      Effect.provideService(DesktopWindow.DesktopWindow, noDesktopWindow),
     );
   },
 );
@@ -392,6 +402,7 @@ it.effect.each(["startup", "open-url"] as const)(
           {} as ElectronWindow.ElectronWindow["Service"],
         ),
         Effect.provideService(DesktopWebLinks.DesktopWebLinks, ignoreWebLinks),
+        Effect.provideService(DesktopWindow.DesktopWindow, noDesktopWindow),
       );
     }).pipe(Effect.scoped),
 );
@@ -432,10 +443,64 @@ it.effect("hands a web link to the renderer and leaves other links alone", () =>
         ElectronWindow.ElectronWindow,
         {} as ElectronWindow.ElectronWindow["Service"],
       ),
+      Effect.provideService(DesktopWindow.DesktopWindow, noDesktopWindow),
       Effect.provideService(
         DesktopWebLinks.DesktopWebLinks,
         DesktopWebLinks.DesktopWebLinks.of({
           receive: (url) => Effect.sync(() => void received.push(url)),
+          receiveThread: () => Effect.void,
+          setRendererReady: () => Effect.void,
+        }),
+      ),
+    );
+  }).pipe(Effect.scoped),
+);
+
+it.effect("opens a thread link, opening a window if none is open", () =>
+  Effect.gen(function* () {
+    storageMock.mockReturnValue(storageAdapter);
+    createClerkBridgeMock.mockReturnValue({ cleanup: vi.fn(), isPrimaryInstance: true });
+    const listeners = new Map<string, (...args: unknown[]) => void>();
+    const electronApp = {
+      whenReady: Effect.void,
+      on: (name: string, listener: (...args: unknown[]) => void) =>
+        Effect.sync(() => {
+          listeners.set(name, listener);
+        }),
+    } as unknown as ElectronApp.ElectronApp["Service"];
+    const threads: Array<unknown> = [];
+    let activations = 0;
+    const environmentId = "3f2b8c1e-4d5a-4b6c-8d7e-9f0a1b2c3d4e";
+    yield* Effect.gen(function* () {
+      const clerk = yield* DesktopClerk.DesktopClerk;
+      yield* clerk.configure;
+      const open = (url: string) => {
+        const event = { preventDefault: vi.fn() };
+        listeners.get("open-url")!(event, url);
+        return event.preventDefault.mock.calls.length;
+      };
+      // Development builds use the t3code-dev scheme.
+      assert.strictEqual(open(`t3code-dev://threads/${environmentId}/thread-1`), 1);
+      assert.strictEqual(open(`t3code-dev://threads/${environmentId}/thread-1/extra`), 0);
+      yield* Effect.yieldNow;
+      assert.deepStrictEqual(threads, [{ environmentId, threadId: "thread-1" }]);
+      assert.strictEqual(activations, 1);
+    }).pipe(
+      Effect.provide(layerDesktopClerk(true, [], "darwin")),
+      Effect.provideService(HostProcess.Arguments, ["t3"]),
+      Effect.provideService(ElectronApp.ElectronApp, electronApp),
+      Effect.provideService(
+        ElectronWindow.ElectronWindow,
+        {} as ElectronWindow.ElectronWindow["Service"],
+      ),
+      Effect.provideService(DesktopWindow.DesktopWindow, {
+        activate: Effect.sync(() => void (activations += 1)),
+      } as unknown as DesktopWindow.DesktopWindow["Service"]),
+      Effect.provideService(
+        DesktopWebLinks.DesktopWebLinks,
+        DesktopWebLinks.DesktopWebLinks.of({
+          receive: () => Effect.void,
+          receiveThread: (link) => Effect.sync(() => void threads.push(link)),
           setRendererReady: () => Effect.void,
         }),
       ),
