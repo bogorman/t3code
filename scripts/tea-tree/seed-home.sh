@@ -1,30 +1,31 @@
-#!/bin/sh
-# Tea Tree: one-time seed of ~/.t3-teatree from the official app's ~/.t3, so T3 Code (TeaTree)
-# opens with all current threads and settings while the official app's files stay untouched.
+#!/bin/bash
+# Tea Tree: copy the official app's threads and settings into TeaTree (~/.t3-teatree).
+# First run: seeds it. Later, with --force: a "sync forward" that replaces TeaTree's threads with the official
+# app's (it lists any TeaTree-only threads first, and keeps a backup).
 #
-# Quit both T3 Code apps first. Safe to rerun: it refuses if ~/.t3-teatree already exists
-# (pass --force to replace it with a fresh copy; TeaTree-only threads are then lost).
-#
-# Copied: the database (SQLite backup, consistent), settings, keybindings, environment id,
-# secrets and sign-in tokens, attachments (APFS clones, no extra space).
-# Not copied: worktrees (threads keep pointing at ~/.t3/worktrees on disk), caches, logs.
+# Copied: the thread database, settings, keybindings, environment id, secrets and sign-in tokens, attachments
+# (APFS clones, no extra space). Not copied: worktrees (threads keep pointing at ~/.t3/worktrees), caches, logs.
 set -eu
-SRC="$HOME/.t3/userdata"
-DEST_HOME="$HOME/.t3-teatree"
-DEST="$DEST_HOME/userdata"
-if [ -e "$DEST_HOME" ]; then
-  [ "${1:-}" = "--force" ] || { echo "$DEST_HOME exists; rerun with --force to replace it."; exit 1; }
-  mv "$DEST_HOME" "$DEST_HOME.old.$(date +%Y%m%d%H%M%S)"
+. "$(dirname "$0")/lib.sh"
+require_apps_quit
+SRC_DB=$(thread_db "$OFFICIAL")
+[ -e "$SRC_DB" ] || { echo "No official T3 Code data in $OFFICIAL."; exit 1; }
+if [ -d "$TEATREE" ]; then
+  [ "${1:-}" = "--force" ] || { echo "$TEATREE exists. Rerun with --force to replace TeaTree's threads with the official app's."; exit 1; }
+  DST_DB=$(thread_db "$TEATREE")
+  guard_lost_threads "$SRC_DB" "$DST_DB" "TeaTree" --force
+  backup_file "$DST_DB"
 fi
-if pgrep -f "T3 Code \(" >/dev/null; then echo "Quit T3 Code first."; exit 1; fi
-mkdir -p "$DEST"
-sqlite3 "file:$SRC/state.sqlite?mode=ro" ".backup '$DEST/state.sqlite'"
+mkdir -p "$TEATREE"
+# TeaTree reads statev2.sqlite; from an old-format official app it seeds that itself from state.sqlite.
+rm -f "$TEATREE/statev2.sqlite" "$TEATREE/state.sqlite"
+copy_db "$SRC_DB" "$TEATREE/$(basename "$SRC_DB")"
 for f in settings.json keybindings.json client-settings.json desktop-settings.json environment-id \
          clerk-tokens.json model-manifest.json usage-model-rates.json; do
-  [ -e "$SRC/$f" ] && cp -p "$SRC/$f" "$DEST/"
+  [ -e "$OFFICIAL/$f" ] && cp -p "$OFFICIAL/$f" "$TEATREE/"
 done
 for d in secrets attachments themes; do
-  [ -d "$SRC/$d" ] && cp -cRp "$SRC/$d" "$DEST/"
+  [ -d "$OFFICIAL/$d" ] && cp -cRp "$OFFICIAL/$d" "$TEATREE/"
 done
-chmod -R go-rwx "$DEST"
-echo "Seeded $DEST from $SRC ($(sqlite3 "$DEST/state.sqlite" 'select count(*) from projection_threads where deleted_at is null') threads)."
+chmod -R go-rwx "$TEATREE"
+echo "Copied $(thread_ids "$TEATREE/$(basename "$SRC_DB")" | wc -l | tr -d ' ') threads from the official app into TeaTree."
