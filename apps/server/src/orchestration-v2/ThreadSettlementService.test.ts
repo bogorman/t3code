@@ -6,7 +6,9 @@ import {
   EventId,
   ProviderInstanceId,
   ProviderSessionId,
+  RunId,
   ThreadId,
+  type MessageId,
   type OrchestrationProjectShell,
   type OrchestrationV2AppThread,
   type OrchestrationV2Command,
@@ -527,6 +529,8 @@ const makeHarness = Effect.fn("makeThreadSettlementHarness")(function* (options:
   const settingsChanges = yield* PubSub.unbounded<ContractServerSettings>();
   const mergedPullRequests = yield* PubSub.unbounded<PullRequestService.PullRequestMergeEvent>();
   const commands = yield* Ref.make<ReadonlyArray<AutoSettleCommand>>([]);
+  /** Commands the settle prompt sends: the prompt, an interrupt, the settle after it. */
+  const promptCommands = yield* Queue.unbounded<OrchestrationV2Command>();
   const branchCalls = yield* Ref.make<
     ReadonlyArray<{ readonly cwd: string; readonly branch: string }>
   >([]);
@@ -578,6 +582,15 @@ const makeHarness = Effect.fn("makeThreadSettlementHarness")(function* (options:
     });
 
   const dispatch: Orchestrator.OrchestratorV2Shape["dispatch"] = (command) => {
+    if (
+      command.type === "message.dispatch" ||
+      command.type === "thread.settle" ||
+      command.type === "run.interrupt"
+    ) {
+      return Queue.offer(promptCommands, command).pipe(
+        Effect.as({ sequence: 1, storedEvents: [] }),
+      );
+    }
     if (command.type !== "thread.auto-settle") {
       return Effect.die(new Error(`Unexpected command: ${command.type}`));
     }
@@ -669,6 +682,7 @@ const makeHarness = Effect.fn("makeThreadSettlementHarness")(function* (options:
     invalidatedCwds,
     closedIdle,
     scriptRuns,
+    promptCommands,
     publishEvent: (event: OrchestrationV2DomainEvent) => PubSub.publish(domainEvents, event),
     updateSettings,
     publishMerge: PubSub.publish(mergedPullRequests, {
@@ -1236,6 +1250,143 @@ describe("ThreadSettlementServiceV2 terminals", () => {
       }),
     ),
   );
+
+  describe("settle prompt", () => {
+    const settings = { ...DEFAULT_SERVER_SETTINGS, settlePrompt: "/wrap-up" };
+    const runEvent = (
+      thread: OrchestrationV2AppThread,
+      userMessageId: MessageId,
+      status: "running" | "completed",
+    ): OrchestrationV2DomainEvent => ({
+      type: "run.updated",
+      id: EventId.make(`event:run:${thread.id}:${status}`),
+      threadId: thread.id,
+      occurredAt: DateTime.makeUnsafe(NOW),
+      payload: {
+        id: RunId.make(`run:${thread.id}`),
+        threadId: thread.id,
+        ordinal: 2,
+        providerInstanceId: ProviderInstanceId.make("codex"),
+        modelSelection: { instanceId: ProviderInstanceId.make("codex"), model: "gpt-5" },
+        providerThreadId: null,
+        userMessageId,
+        rootNodeId: null,
+        activeAttemptId: null,
+        status,
+        requestedAt: DateTime.makeUnsafe(NOW),
+        startedAt: null,
+        completedAt: null,
+        checkpointId: null,
+        contextHandoffId: null,
+      },
+    });
+    const takePrompt = (queue: Queue.Queue<OrchestrationV2Command>) =>
+      Queue.take(queue).pipe(
+        Effect.map((command) => {
+          assert.strictEqual(command.type, "message.dispatch");
+          return command as Extract<OrchestrationV2Command, { readonly type: "message.dispatch" }>;
+        }),
+      );
+
+    it.effect("sends the prompt, settles again when its turn ends, then cleans up", () =>
+      Effect.scoped(
+        Effect.gen(function* () {
+          const thread = appThread("wrap-up-thread", "settled");
+          const fixture = yield* makeHarness({
+            snapshot: makeSnapshot([]),
+            settings,
+            currentThreads: [thread],
+          });
+
+          yield* Effect.gen(function* () {
+            const service = yield* ThreadSettlementService.ThreadSettlementServiceV2;
+            yield* startHarness(service, fixture.activation, fixture.snapshotReads);
+            yield* fixture.publishEvent(settledEvent(thread));
+            const prompt = yield* takePrompt(fixture.promptCommands);
+            assert.strictEqual(prompt.threadId, thread.id);
+            assert.strictEqual(prompt.text, "/wrap-up");
+            assert.strictEqual(prompt.createdBy, "system");
+            assert.deepStrictEqual(prompt.dispatchMode, { type: "start_immediately" });
+
+            // Its turn ends: the thread settles again. Cleanup waits for that settle.
+            yield* fixture.publishEvent(runEvent(thread, prompt.messageId, "running"));
+            yield* fixture.publishEvent(runEvent(thread, prompt.messageId, "completed"));
+            const settle = yield* Queue.take(fixture.promptCommands);
+            assert.deepStrictEqual(
+              { type: settle.type, threadId: "threadId" in settle ? settle.threadId : null },
+              { type: "thread.settle", threadId: thread.id },
+            );
+            assert.strictEqual(yield* Queue.size(fixture.closedIdle), 0);
+
+            // The settle that follows the prompt cleans up and sends nothing more.
+            const resettled = {
+              ...thread,
+              settledAt: DateTime.makeUnsafe(Date.parse(NOW) + 60_000),
+            };
+            yield* fixture.publishEvent(settledEvent(resettled));
+            assert.deepStrictEqual(yield* Queue.take(fixture.closedIdle), { threadId: thread.id });
+            assert.strictEqual(yield* Queue.size(fixture.promptCommands), 0);
+          }).pipe(Effect.provide(fixture.layer));
+        }),
+      ),
+    );
+
+    it.effect("sends the prompt once when a settlement is re-emitted", () =>
+      Effect.scoped(
+        Effect.gen(function* () {
+          const thread = appThread("re-emitted-thread", "settled");
+          const marker = appThread("marker-thread", "settled");
+          const fixture = yield* makeHarness({
+            snapshot: makeSnapshot([]),
+            settings: { ...DEFAULT_SERVER_SETTINGS },
+            currentThreads: [thread, marker],
+          });
+
+          yield* Effect.gen(function* () {
+            const service = yield* ThreadSettlementService.ThreadSettlementServiceV2;
+            yield* startHarness(service, fixture.activation, fixture.snapshotReads);
+            yield* fixture.updateSettings({ settlePrompt: "/wrap-up" });
+            yield* fixture.publishEvent(settledEvent(thread));
+            yield* takePrompt(fixture.promptCommands);
+            yield* fixture.publishEvent(settledEvent(thread));
+            // Events run in order: once the marker is prompted, the re-emitted
+            // settlement has been handled without a second prompt.
+            yield* fixture.publishEvent(settledEvent(marker));
+            const next = yield* takePrompt(fixture.promptCommands);
+            assert.strictEqual(next.threadId, marker.id);
+          }).pipe(Effect.provide(fixture.layer));
+        }),
+      ),
+    );
+
+    it.effect("stops a prompt turn that runs past the timeout, then settles", () =>
+      Effect.scoped(
+        Effect.gen(function* () {
+          const thread = appThread("slow-thread", "settled");
+          const fixture = yield* makeHarness({
+            snapshot: makeSnapshot([]),
+            settings,
+            currentThreads: [thread],
+          });
+
+          yield* Effect.gen(function* () {
+            const service = yield* ThreadSettlementService.ThreadSettlementServiceV2;
+            yield* startHarness(service, fixture.activation, fixture.snapshotReads);
+            yield* fixture.publishEvent(settledEvent(thread));
+            const prompt = yield* takePrompt(fixture.promptCommands);
+            yield* fixture.publishEvent(runEvent(thread, prompt.messageId, "running"));
+            yield* TestClock.adjust(ThreadSettlementService.SETTLE_PROMPT_TIMEOUT_MS);
+            const interrupt = yield* Queue.take(fixture.promptCommands);
+            assert.deepStrictEqual(
+              { type: interrupt.type, runId: "runId" in interrupt ? interrupt.runId : null },
+              { type: "run.interrupt", runId: RunId.make(`run:${thread.id}`) },
+            );
+            assert.strictEqual((yield* Queue.take(fixture.promptCommands)).type, "thread.settle");
+          }).pipe(Effect.provide(fixture.layer));
+        }),
+      ),
+    );
+  });
 });
 
 describe("ThreadSettlementServiceV2 single-thread sweeps", () => {
