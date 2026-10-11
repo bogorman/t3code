@@ -96,7 +96,7 @@ isn't possible while the official app is on the old 0.0.45 format; once both are
 - **Open in T3:** use `t3code://threads/<env>/<thread>` (needs PR #1, which TeaTree has).
 - **Badges:** keep TeaTree's sidebar badges current with open cards per session, with needs-you from Check & close
   (PR #3). Planned for the Mac app: `howsitgoing/plans/feature/12-mac-desktop-app-spec.md`.
-- **Message on settle** (PR #2): set it to the Hows settle skill so threads report to Hows as they settle.
+- **Message on settle** (PR #2): set it to `/hows-settle` so threads report to Hows as they settle.
 - **Track machine and environment, not just folder:** Hows should record, per session, the machine (hostname) and the
   T3 environment (environment id plus which app, official or TeaTree), since one owner can have several of each.
   Today `integrations/lib/t3_threads.py` reads only `~/.t3`; it should also read `~/.t3-teatree`, and the session
