@@ -274,6 +274,7 @@ import {
   useComboboxFilter,
 } from "./ui/combobox";
 import { SidebarContent, SidebarGroup, useSidebar } from "./ui/sidebar";
+import { Toggle, ToggleGroup } from "./ui/toggle-group";
 import { SidebarChromeFooter, SidebarChromeHeader } from "./sidebar/SidebarChrome";
 import { SidebarHeaderIconButton, SidebarThreadHeader } from "./sidebar/SidebarThreadHeader";
 import { Menu, MenuItem, MenuPopup, MenuSeparator, MenuShortcut, MenuTrigger } from "./ui/menu";
@@ -5149,6 +5150,32 @@ export default function Sidebar() {
               activeSearchResultIndex={activeSearchResultIndex}
               onClearSearch={clearThreadSearch}
             />
+            {projectGroups.length > 1 ? (
+              // One-click project scope: drives the same persisted scope as the
+              // menu above. Scrolls sideways so a long catalog keeps one row.
+              <div className="-mx-2 mt-1 overflow-x-auto px-2 [scrollbar-width:none]">
+                <ToggleGroup
+                  variant="default"
+                  size="segmented"
+                  aria-label="Filter threads by project"
+                  value={[projectScopeKey ?? "all"]}
+                  onValueChange={(value) => {
+                    const next = value[0];
+                    setProjectScopeKey(next === undefined || next === "all" ? null : next);
+                  }}
+                >
+                  <Toggle variant="pill" value="all">
+                    All
+                  </Toggle>
+                  {projectGroups.map((project) => (
+                    <Toggle key={project.projectKey} variant="pill" value={project.projectKey}>
+                      <ProjectFavicon project={project} className="size-3.5" />
+                      {project.displayName}
+                    </Toggle>
+                  ))}
+                </ToggleGroup>
+              </div>
+            ) : null}
           </SidebarGroup>
         }
       >
