@@ -361,6 +361,13 @@ export const SETTINGS_SEARCH_ITEMS = [
     scope: "project-defaults",
   },
   {
+    id: "agent-nudge-prompt",
+    title: "Nudge message",
+    to: "/settings/general",
+    searchTerms: ["keep agent on nudge offline resident wake check-in"],
+    scope: "project-defaults",
+  },
+  {
     id: "thread-notifications",
     title: "Thread notifications",
     to: "/settings/general",

@@ -42,6 +42,7 @@ import {
   type ReorderPinnedThreadInput,
   type ReorderActiveThreadInput,
   type SetThreadAutoSettleInput,
+  type SetThreadKeepAgentOnInput,
   type SettleThreadInput,
   type SnoozeThreadInput,
   type StartThreadTurnInput,
@@ -78,6 +79,7 @@ import {
   reorderPinnedThread,
   reorderActiveThread,
   setThreadAutoSettle,
+  setThreadKeepAgentOn,
   settleThread,
   snoozeThread,
   startThreadTurn,
@@ -123,6 +125,7 @@ export type {
   ReorderPinnedThreadInput,
   ReorderActiveThreadInput,
   SetThreadAutoSettleInput,
+  SetThreadKeepAgentOnInput,
   SettleThreadInput,
   SnoozeThreadInput,
   StartThreadTurnInput,
@@ -218,6 +221,12 @@ export function createThreadEnvironmentAtoms<R, E>(
     setAutoSettle: createEnvironmentCommand(runtime, {
       label: "environment-data:commands:thread:set-auto-settle",
       execute: (input: SetThreadAutoSettleInput) => setThreadAutoSettle(input),
+      scheduler,
+      concurrency,
+    }),
+    setKeepAgentOn: createEnvironmentCommand(runtime, {
+      label: "environment-data:commands:thread:set-keep-agent-on",
+      execute: (input: SetThreadKeepAgentOnInput) => setThreadKeepAgentOn(input),
       scheduler,
       concurrency,
     }),
@@ -457,6 +466,10 @@ export function createThreadEnvironmentAtoms<R, E>(
     setAutoSettle: optimistic.wrap(commands.setAutoSettle, (thread, input, now) => ({
       ...thread,
       autoSettleDisabledAt: input.enabled ? null : (thread.autoSettleDisabledAt ?? now),
+    })),
+    setKeepAgentOn: optimistic.wrap(commands.setKeepAgentOn, (thread, input, now) => ({
+      ...thread,
+      keepAgentOnAt: input.enabled ? (thread.keepAgentOnAt ?? now) : null,
     })),
     pin: optimistic.wrap(commands.pin, (thread, input, now) => ({
       ...thread,
