@@ -142,6 +142,13 @@ import { isCommandPaletteOpen, openCommandPalette } from "../commandPaletteBus";
 import { startNewThreadFromContext } from "../lib/chatThreadActions";
 import { useClientSettings } from "../hooks/useSettings";
 import { useCopyToClipboard } from "../hooks/useCopyToClipboard";
+import { threadAgentName } from "@t3tools/shared/threadAgent";
+import {
+  SidebarAgentDetails,
+  SidebarAgentDot,
+  SidebarAgentStrip,
+  type SidebarAgentProjectSummary,
+} from "./sidebar/SidebarAgent";
 import { useLocalStorage } from "../hooks/useLocalStorage";
 import { useNowMinute } from "../hooks/useNowMinute";
 import {
@@ -204,7 +211,9 @@ import {
   resolveSidebarThreadSection,
   resolveSidebarRowAccessibility,
   type SidebarDropVerb,
+  resolveSidebarAgentState,
   resolveSidebarThreadStatus,
+  sidebarAgentIsActive,
   resolveThreadLastVisitedAt,
   searchSidebarThreads,
   shouldCreateNewThreadInCurrentProject,
@@ -381,6 +390,7 @@ function SidebarProviderStack(props: {
   thread: SidebarThreadSummary;
   providerEntryByInstanceId: ReadonlyMap<string, ProviderInstanceEntry>;
 }) {
+  const agentState = resolveSidebarAgentState(props.thread);
   const stack = resolveThreadProviderStack(props.thread);
   const currentInstanceId = stack[stack.length - 1]!;
   const currentEntry = props.providerEntryByInstanceId.get(currentInstanceId) ?? null;
@@ -403,7 +413,12 @@ function SidebarProviderStack(props: {
     />
   );
   if (stack.length === 1) {
-    return <span className="inline-flex shrink-0 items-center">{current}</span>;
+    return (
+      <span className="relative inline-flex shrink-0 items-center">
+        {current}
+        <SidebarAgentDot state={agentState} />
+      </span>
+    );
   }
   return (
     <span className="inline-flex shrink-0 items-center gap-1.5">
@@ -421,7 +436,10 @@ function SidebarProviderStack(props: {
           />
         );
       })}
-      <span className="relative z-10 inline-flex items-center">{current}</span>
+      <span className="relative z-10 inline-flex items-center">
+        {current}
+        <SidebarAgentDot state={agentState} />
+      </span>
     </span>
   );
 }
@@ -481,6 +499,10 @@ function SidebarThreadTooltip({
             <div className="min-w-0 truncate text-foreground/75">{projectDisplayName}</div>
           </div>
         ) : null}
+        <SidebarAgentDetails
+          name={threadAgentName(projectDisplayName ?? "", thread.title)}
+          state={resolveSidebarAgentState(thread)}
+        />
         {environmentLabel ? (
           <div className="flex min-w-0 items-center gap-2">
             <EnvironmentMachineIcon
@@ -2593,6 +2615,35 @@ export default function Sidebar() {
   const setProjectScopeKey = useUiStateStore((store) => store.setSidebarProjectScopeKey);
   // {value, label} items let Base UI drive the combobox selection contract
   // while the popup search filters the same collection.
+  // Projects with live agents, needing-you first, for the strip above the list.
+  const agentProjects = useMemo((): SidebarAgentProjectSummary[] => {
+    const groupKeyByProject = new Map(
+      projectGroups.flatMap((group) =>
+        group.memberProjects.map(
+          (project) => [`${project.environmentId}:${project.id}`, group] as const,
+        ),
+      ),
+    );
+    const summaries = new Map<string, { displayName: string; active: number; needsYou: number }>();
+    for (const thread of threads) {
+      if (thread.archivedAt !== null || thread.settledOverride === "settled") continue;
+      const state = resolveSidebarAgentState(thread);
+      if (!sidebarAgentIsActive(state)) continue;
+      const group = groupKeyByProject.get(`${thread.environmentId}:${thread.projectId}`);
+      if (group === undefined) continue;
+      const summary = summaries.get(group.projectKey) ?? {
+        displayName: group.displayName,
+        active: 0,
+        needsYou: 0,
+      };
+      summary.active += 1;
+      if (state === "needs-you") summary.needsYou += 1;
+      summaries.set(group.projectKey, summary);
+    }
+    return [...summaries.entries()]
+      .map(([projectKey, summary]) => ({ projectKey, ...summary }))
+      .toSorted((a, b) => b.needsYou - a.needsYou || b.active - a.active);
+  }, [projectGroups, threads]);
   const projectScopeItems = useMemo(
     () => [
       { value: "all", label: "All projects" },
@@ -5137,6 +5188,11 @@ export default function Sidebar() {
               searchResultCount={threadSearchResults.length}
               activeSearchResultIndex={activeSearchResultIndex}
               onClearSearch={clearThreadSearch}
+            />
+            <SidebarAgentStrip
+              projects={agentProjects}
+              selectedProjectKey={projectScopeKey}
+              onSelect={setProjectScopeKey}
             />
           </SidebarGroup>
         }

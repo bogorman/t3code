@@ -34,7 +34,9 @@ import {
   resolveSidebarStageBadgeLabel,
   resolveSidebarThreadSection,
   resolveSidebarRowAccessibility,
+  resolveSidebarAgentState,
   resolveSidebarThreadStatus,
+  sidebarAgentIsActive,
   resolveSidebarV2TopStatus,
   resolveThreadLastVisitedAt,
   resolveThreadRowClassName,
@@ -884,6 +886,44 @@ describe("isContextMenuPointerDown", () => {
         isMac: false,
       }),
     ).toBe(false);
+  });
+});
+
+describe("resolveSidebarAgentState", () => {
+  const runtime = {
+    status: "running" as const,
+    activeRunId: null,
+    providerInstanceId: ProviderInstanceId.make("codex"),
+    providerName: "Codex",
+    lastError: null,
+    updatedAt: "2026-03-09T10:00:00.000Z",
+  };
+  const base = { hasPendingApprovals: false, hasPendingUserInput: false, runtime: null };
+
+  it("reads the provider session: none, offline, working, needs you, idle", () => {
+    expect(resolveSidebarAgentState({ ...base, agentSessionStatus: null })).toBe("none");
+    expect(resolveSidebarAgentState({ ...base, agentSessionStatus: "stopped" })).toBe("offline");
+    expect(resolveSidebarAgentState({ ...base, agentSessionStatus: "error" })).toBe("offline");
+    expect(resolveSidebarAgentState({ ...base, runtime, agentSessionStatus: "running" })).toBe(
+      "working",
+    );
+    expect(
+      resolveSidebarAgentState({
+        ...base,
+        hasPendingApprovals: true,
+        runtime,
+        agentSessionStatus: "waiting",
+      }),
+    ).toBe("needs-you");
+    expect(resolveSidebarAgentState({ ...base, agentSessionStatus: "ready" })).toBe("idle");
+  });
+
+  it("counts working, needs-you and idle agents as active", () => {
+    expect(
+      ["working", "needs-you", "idle", "offline", "none"].map((state) =>
+        sidebarAgentIsActive(state as Parameters<typeof sidebarAgentIsActive>[0]),
+      ),
+    ).toEqual([true, true, true, false, false]);
   });
 });
 

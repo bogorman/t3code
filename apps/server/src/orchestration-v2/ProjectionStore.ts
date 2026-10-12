@@ -957,8 +957,21 @@ type PayloadRow = {
   readonly payload_json: string;
 };
 
+type AgentSessionStatus = NonNullable<OrchestrationV2ThreadShell["agentSessionStatus"]>;
+const AGENT_SESSION_STATUSES: ReadonlySet<string> = new Set<AgentSessionStatus>([
+  "starting",
+  "ready",
+  "running",
+  "waiting",
+  "stopped",
+  "error",
+]);
+const agentSessionStatusFromRow = (status: string | null): AgentSessionStatus | null =>
+  status !== null && AGENT_SESSION_STATUSES.has(status) ? (status as AgentSessionStatus) : null;
+
 type ShellThreadRow = {
   readonly thread_id: string;
+  readonly agent_session_status: string | null;
   readonly payload_json: string;
   readonly forked_from_run_source_thread_id: string | null;
   readonly latest_run_id: string | null;
@@ -1488,6 +1501,7 @@ export function threadShellFromProjection(
       latestRootProviderFailure(latestRun, projection.turnItems),
       providerSession?.lastError ?? null,
     ),
+    agentSessionStatus: providerSession?.status ?? null,
     pendingRuntimeRequest:
       pendingRuntimeRequest === null
         ? null
@@ -1594,6 +1608,7 @@ type ShellThreadState = {
   readonly activityRunStatus: ShellActivityRunStatus | null;
   readonly activityRunStartedAt: DateTime.Utc | null;
   readonly lastError: string | null;
+  readonly agentSessionStatus: AgentSessionStatus | null;
   readonly lastErrorClass: OrchestrationV2ThreadShell["lastErrorClass"];
   readonly usageLimitResetAt: OrchestrationV2ThreadShell["usageLimitResetAt"];
   readonly pendingRuntimeRequest: OrchestrationV2ThreadProjection["runtimeRequests"][number] | null;
@@ -1753,6 +1768,7 @@ function shellFromState(input: {
     status: input.state.latestRunStatus,
     lastError: input.state.lastError,
     lastErrorClass: input.state.lastErrorClass,
+    agentSessionStatus: input.state.agentSessionStatus,
     usageLimitResetAt: input.state.usageLimitResetAt,
     pendingRuntimeRequest:
       input.state.pendingRuntimeRequest === null
@@ -5189,6 +5205,16 @@ export const layer: Layer.Layer<ProjectionStoreV2, never, SqlClient.SqlClient> =
                 LIMIT 1
               ) AS last_error,
               (
+                SELECT session.status
+                FROM orchestration_v2_projection_provider_sessions session
+                INNER JOIN orchestration_v2_projection_provider_session_bindings binding
+                  ON binding.provider_session_id = session.provider_session_id
+                WHERE binding.thread_id = t.thread_id
+                  AND session.provider_instance_id = t.provider_instance_id
+                ORDER BY session.updated_at DESC, session.provider_session_id DESC
+                LIMIT 1
+              ) AS agent_session_status,
+              (
                 SELECT item.payload_json
                 FROM orchestration_v2_projection_turn_items item
                   INDEXED BY orchestration_v2_projection_turn_items_thread_run_idx
@@ -5700,6 +5726,7 @@ export const layer: Layer.Layer<ProjectionStoreV2, never, SqlClient.SqlClient> =
             terminalFailureItem?.type === "error" ? terminalFailureItem.failure : null,
             row.last_error,
           ),
+          agentSessionStatus: agentSessionStatusFromRow(row.agent_session_status),
           pendingRuntimeRequest,
           latestUserMessageAt:
             row.latest_user_message_at === null
