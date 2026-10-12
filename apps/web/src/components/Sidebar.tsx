@@ -142,6 +142,13 @@ import { isCommandPaletteOpen, openCommandPalette } from "../commandPaletteBus";
 import { startNewThreadFromContext } from "../lib/chatThreadActions";
 import { useClientSettings } from "../hooks/useSettings";
 import { useCopyToClipboard } from "../hooks/useCopyToClipboard";
+import { threadAgentName } from "@t3tools/shared/threadAgent";
+import {
+  SidebarAgentDetails,
+  SidebarAgentDot,
+  SidebarAgentStrip,
+  type SidebarAgentProjectSummary,
+} from "./sidebar/SidebarAgent";
 import { useLocalStorage } from "../hooks/useLocalStorage";
 import { useNowMinute } from "../hooks/useNowMinute";
 import {
@@ -205,7 +212,9 @@ import {
   resolveSidebarThreadSection,
   resolveSidebarRowAccessibility,
   type SidebarDropVerb,
+  resolveSidebarAgentState,
   resolveSidebarThreadStatus,
+  sidebarAgentIsActive,
   resolveThreadLastVisitedAt,
   searchSidebarThreads,
   shouldCreateNewThreadInCurrentProject,
@@ -274,7 +283,6 @@ import {
   useComboboxFilter,
 } from "./ui/combobox";
 import { SidebarContent, SidebarGroup, useSidebar } from "./ui/sidebar";
-import { Toggle, ToggleGroup } from "./ui/toggle-group";
 import { SidebarChromeFooter, SidebarChromeHeader } from "./sidebar/SidebarChrome";
 import { SidebarHeaderIconButton, SidebarThreadHeader } from "./sidebar/SidebarThreadHeader";
 import { Menu, MenuItem, MenuPopup, MenuSeparator, MenuShortcut, MenuTrigger } from "./ui/menu";
@@ -383,6 +391,7 @@ function SidebarProviderStack(props: {
   thread: SidebarThreadSummary;
   providerEntryByInstanceId: ReadonlyMap<string, ProviderInstanceEntry>;
 }) {
+  const agentState = resolveSidebarAgentState(props.thread);
   const stack = resolveThreadProviderStack(props.thread);
   const currentInstanceId = stack[stack.length - 1]!;
   const currentEntry = props.providerEntryByInstanceId.get(currentInstanceId) ?? null;
@@ -405,7 +414,12 @@ function SidebarProviderStack(props: {
     />
   );
   if (stack.length === 1) {
-    return <span className="inline-flex shrink-0 items-center">{current}</span>;
+    return (
+      <span className="relative inline-flex shrink-0 items-center">
+        {current}
+        <SidebarAgentDot state={agentState} />
+      </span>
+    );
   }
   return (
     <span className="inline-flex shrink-0 items-center gap-1.5">
@@ -423,7 +437,10 @@ function SidebarProviderStack(props: {
           />
         );
       })}
-      <span className="relative z-10 inline-flex items-center">{current}</span>
+      <span className="relative z-10 inline-flex items-center">
+        {current}
+        <SidebarAgentDot state={agentState} />
+      </span>
     </span>
   );
 }
@@ -483,6 +500,12 @@ function SidebarThreadTooltip({
             <div className="min-w-0 truncate text-foreground/75">{projectDisplayName}</div>
           </div>
         ) : null}
+        <SidebarAgentDetails
+          name={threadAgentName(projectDisplayName ?? "", thread.title)}
+          state={resolveSidebarAgentState(thread)}
+          keptOn={thread.keepAgentOnAt != null}
+          thread={thread}
+        />
         {environmentLabel ? (
           <div className="flex min-w-0 items-center gap-2">
             <EnvironmentMachineIcon
@@ -2416,6 +2439,7 @@ export default function Sidebar() {
     unpinThread,
     confirmAndUnpinThread,
     setThreadAutoSettle,
+    setThreadKeepAgentOn,
     reorderPinnedThread,
     reorderActiveThread,
     markThreadUnread,
@@ -2605,6 +2629,47 @@ export default function Sidebar() {
   const setProjectScopeKey = useUiStateStore((store) => store.setSidebarProjectScopeKey);
   // {value, label} items let Base UI drive the combobox selection contract
   // while the popup search filters the same collection.
+  // Projects with live agents, needing-you first, for the strip above the list.
+  const agentProjects = useMemo((): SidebarAgentProjectSummary[] => {
+    const groupKeyByProject = new Map(
+      projectGroups.flatMap((group) =>
+        group.memberProjects.map(
+          (project) => [`${project.environmentId}:${project.id}`, group] as const,
+        ),
+      ),
+    );
+    const summaries = new Map<
+      string,
+      Omit<SidebarAgentProjectSummary, "projectKey"> & { active: number; needsYou: number }
+    >();
+    for (const thread of threads) {
+      if (thread.archivedAt !== null || thread.settledOverride === "settled") continue;
+      const state = resolveSidebarAgentState(thread);
+      const offlineKeptOn = state === "offline" && thread.keepAgentOnAt != null;
+      if (!sidebarAgentIsActive(state) && !offlineKeptOn) continue;
+      const group = groupKeyByProject.get(`${thread.environmentId}:${thread.projectId}`);
+      if (group === undefined) continue;
+      const summary = summaries.get(group.projectKey) ?? {
+        displayName: group.displayName,
+        active: 0,
+        needsYou: 0,
+        offlineKeptOn: null,
+      };
+      if (offlineKeptOn) {
+        summaries.set(group.projectKey, {
+          ...summary,
+          offlineKeptOn: summary.offlineKeptOn ?? thread,
+        });
+        continue;
+      }
+      summary.active += 1;
+      if (state === "needs-you") summary.needsYou += 1;
+      summaries.set(group.projectKey, summary);
+    }
+    return [...summaries.entries()]
+      .map(([projectKey, summary]) => ({ projectKey, ...summary }))
+      .toSorted((a, b) => b.needsYou - a.needsYou || b.active - a.active);
+  }, [projectGroups, threads]);
   const projectScopeItems = useMemo(
     () => [
       { value: "all", label: "All projects" },
@@ -4640,6 +4705,7 @@ export default function Sidebar() {
               isPinned,
               isSettled,
               autoSettleEnabled: thread.autoSettleDisabledAt == null,
+              keepAgentOn: thread.keepAgentOnAt != null,
               isSnoozed,
               canSnoozeNow: canSnooze(thread, { now: new Date().toISOString() }),
               isRegeneratingTitle,
@@ -4719,6 +4785,24 @@ export default function Sidebar() {
           case "unpin":
             attemptUnpin(threadRef);
             return;
+          case "keep-agent-on:on":
+          case "keep-agent-on:off": {
+            const result = await setThreadKeepAgentOn(
+              threadRef,
+              clicked.value === "keep-agent-on:on",
+            );
+            if (result._tag === "Failure" && !isAtomCommandInterrupted(result)) {
+              const error = squashAtomCommandFailure(result);
+              toastManager.add(
+                stackedThreadToast({
+                  type: "error",
+                  title: "Failed to update keep agent on",
+                  description: error instanceof Error ? error.message : "An error occurred.",
+                }),
+              );
+            }
+            return;
+          }
           case "auto-settle:enabled":
           case "auto-settle:disabled": {
             const result = await setThreadAutoSettle(
@@ -4864,6 +4948,7 @@ export default function Sidebar() {
       serverConfigs,
       setProjectScopeKey,
       setThreadAutoSettle,
+      setThreadKeepAgentOn,
       startThreadRename,
       updateThreadMetadata,
       timestampFormat,
@@ -5150,32 +5235,11 @@ export default function Sidebar() {
               activeSearchResultIndex={activeSearchResultIndex}
               onClearSearch={clearThreadSearch}
             />
-            {projectGroups.length > 1 ? (
-              // One-click project scope: drives the same persisted scope as the
-              // menu above. Scrolls sideways so a long catalog keeps one row.
-              <div className="-mx-2 mt-1 overflow-x-auto px-2 [scrollbar-width:none]">
-                <ToggleGroup
-                  variant="default"
-                  size="segmented"
-                  aria-label="Filter threads by project"
-                  value={[projectScopeKey ?? "all"]}
-                  onValueChange={(value) => {
-                    const next = value[0];
-                    setProjectScopeKey(next === undefined || next === "all" ? null : next);
-                  }}
-                >
-                  <Toggle variant="pill" value="all">
-                    All
-                  </Toggle>
-                  {projectGroups.map((project) => (
-                    <Toggle key={project.projectKey} variant="pill" value={project.projectKey}>
-                      <ProjectFavicon project={project} className="size-3.5" />
-                      {project.displayName}
-                    </Toggle>
-                  ))}
-                </ToggleGroup>
-              </div>
-            ) : null}
+            <SidebarAgentStrip
+              projects={agentProjects}
+              selectedProjectKey={projectScopeKey}
+              onSelect={setProjectScopeKey}
+            />
           </SidebarGroup>
         }
       >

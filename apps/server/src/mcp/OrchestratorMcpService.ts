@@ -57,6 +57,7 @@ import {
   type ServerProvider,
   ThreadId,
 } from "@t3tools/contracts";
+import { matchesThreadAgentName, threadAgentHandle } from "@t3tools/shared/threadAgent";
 import { runRanAfter } from "@t3tools/shared/orchestrationV2ThreadError";
 import * as Clock from "effect/Clock";
 import * as Context from "effect/Context";
@@ -677,6 +678,8 @@ function listItemFromShell(
   return {
     threadId: shell.id,
     title: shell.title,
+    agentName: threadAgentHandle(shell.title),
+    agentStatus: shell.agentSessionStatus ?? null,
     createdBy: shell.createdBy,
     creationSource: shell.creationSource,
     status: shell.activityRunStatus ?? shell.status,
@@ -2320,6 +2323,11 @@ const make = Effect.gen(function* () {
             (thread) =>
               titleContains === undefined ||
               thread.title.toLocaleLowerCase().includes(titleContains),
+          )
+          .filter(
+            (thread) =>
+              input.agentName === undefined ||
+              matchesThreadAgentName(input.agentName, thread.title),
           );
         const cursor = input.cursor ?? 0;
         const limit = input.limit ?? DEFAULT_THREAD_LIST_LIMIT;

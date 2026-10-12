@@ -17,6 +17,9 @@ export type ThreadActionMenuId =
   | "auto-settle"
   | "auto-settle:enabled"
   | "auto-settle:disabled"
+  | "keep-agent-on"
+  | "keep-agent-on:on"
+  | "keep-agent-on:off"
   | "snooze"
   | `snooze:${string}`
   | "unsnooze"
@@ -85,6 +88,8 @@ export interface ThreadActionMenuState {
   readonly isSettled: boolean;
   /** False while the user has turned automatic settlement off for this thread. */
   readonly autoSettleEnabled: boolean;
+  /** True while the user keeps this thread's agent on (never auto-settled, nudged when offline). */
+  readonly keepAgentOn: boolean;
   readonly isSnoozed: boolean;
   readonly canSnoozeNow: boolean;
   readonly isRegeneratingTitle: boolean;
@@ -212,6 +217,21 @@ export function buildThreadActionMenuItems(
                 label: "Disabled",
                 checked: !state.autoSettleEnabled,
               },
+            ],
+          },
+        ]
+      : []),
+    // Keeps the thread's agent on: never auto-settled, nudged back when offline.
+    // Needs a server that settles threads (and so understands the command).
+    ...(state.supports.settlement
+      ? [
+          {
+            id: "keep-agent-on" as const,
+            label: "Keep agent on",
+            icon: "timer",
+            children: [
+              { id: "keep-agent-on:on" as const, label: "On", checked: state.keepAgentOn },
+              { id: "keep-agent-on:off" as const, label: "Off", checked: !state.keepAgentOn },
             ],
           },
         ]

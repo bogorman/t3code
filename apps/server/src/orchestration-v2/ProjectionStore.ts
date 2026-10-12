@@ -717,6 +717,7 @@ export function applyToProjection(
     case "thread.unsnoozed":
     case "thread.auto-settle-set":
     case "thread.badges-updated":
+    case "thread.keep-agent-on-set":
     case "thread.pinned":
     case "thread.unpinned":
     case "thread.pin-reordered":
@@ -958,8 +959,21 @@ type PayloadRow = {
   readonly payload_json: string;
 };
 
+type AgentSessionStatus = NonNullable<OrchestrationV2ThreadShell["agentSessionStatus"]>;
+const AGENT_SESSION_STATUSES: ReadonlySet<string> = new Set<AgentSessionStatus>([
+  "starting",
+  "ready",
+  "running",
+  "waiting",
+  "stopped",
+  "error",
+]);
+const agentSessionStatusFromRow = (status: string | null): AgentSessionStatus | null =>
+  status !== null && AGENT_SESSION_STATUSES.has(status) ? (status as AgentSessionStatus) : null;
+
 type ShellThreadRow = {
   readonly thread_id: string;
+  readonly agent_session_status: string | null;
   readonly payload_json: string;
   readonly forked_from_run_source_thread_id: string | null;
   readonly latest_run_id: string | null;
@@ -1490,6 +1504,7 @@ export function threadShellFromProjection(
       latestRootProviderFailure(latestRun, projection.turnItems),
       providerSession?.lastError ?? null,
     ),
+    agentSessionStatus: providerSession?.status ?? null,
     pendingRuntimeRequest:
       pendingRuntimeRequest === null
         ? null
@@ -1529,6 +1544,7 @@ export function threadShellFromProjection(
     pinnedAt: projection.thread.pinnedAt ?? null,
 
     autoSettleDisabledAt: projection.thread.autoSettleDisabledAt ?? null,
+    keepAgentOnAt: projection.thread.keepAgentOnAt ?? null,
     pinOrderKey: projection.thread.pinOrderKey ?? null,
     lastVisitedAt: projection.thread.lastVisitedAt,
     titleRegeneration: projection.thread.titleRegeneration ?? null,
@@ -1596,6 +1612,7 @@ type ShellThreadState = {
   readonly activityRunStatus: ShellActivityRunStatus | null;
   readonly activityRunStartedAt: DateTime.Utc | null;
   readonly lastError: string | null;
+  readonly agentSessionStatus: AgentSessionStatus | null;
   readonly lastErrorClass: OrchestrationV2ThreadShell["lastErrorClass"];
   readonly usageLimitResetAt: OrchestrationV2ThreadShell["usageLimitResetAt"];
   readonly pendingRuntimeRequest: OrchestrationV2ThreadProjection["runtimeRequests"][number] | null;
@@ -1756,6 +1773,7 @@ function shellFromState(input: {
     status: input.state.latestRunStatus,
     lastError: input.state.lastError,
     lastErrorClass: input.state.lastErrorClass,
+    agentSessionStatus: input.state.agentSessionStatus,
     usageLimitResetAt: input.state.usageLimitResetAt,
     pendingRuntimeRequest:
       input.state.pendingRuntimeRequest === null
@@ -1785,6 +1803,7 @@ function shellFromState(input: {
     pinnedAt: input.state.thread.pinnedAt ?? null,
 
     autoSettleDisabledAt: input.state.thread.autoSettleDisabledAt ?? null,
+    keepAgentOnAt: input.state.thread.keepAgentOnAt ?? null,
     pinOrderKey: input.state.thread.pinOrderKey ?? null,
     lastVisitedAt: input.state.thread.lastVisitedAt,
     titleRegeneration: input.state.thread.titleRegeneration ?? null,
@@ -1825,6 +1844,7 @@ export const layer: Layer.Layer<ProjectionStoreV2, never, SqlClient.SqlClient> =
           case "thread.unsnoozed":
           case "thread.auto-settle-set":
           case "thread.badges-updated":
+          case "thread.keep-agent-on-set":
           case "thread.pinned":
           case "thread.unpinned":
           case "thread.pin-reordered":
@@ -2658,6 +2678,7 @@ export const layer: Layer.Layer<ProjectionStoreV2, never, SqlClient.SqlClient> =
           event.type !== "thread.unsnoozed" &&
           event.type !== "thread.auto-settle-set" &&
           event.type !== "thread.badges-updated" &&
+          event.type !== "thread.keep-agent-on-set" &&
           event.type !== "thread.pinned" &&
           event.type !== "thread.unpinned" &&
           event.type !== "thread.pin-reordered" &&
@@ -5194,6 +5215,16 @@ export const layer: Layer.Layer<ProjectionStoreV2, never, SqlClient.SqlClient> =
                 LIMIT 1
               ) AS last_error,
               (
+                SELECT session.status
+                FROM orchestration_v2_projection_provider_sessions session
+                INNER JOIN orchestration_v2_projection_provider_session_bindings binding
+                  ON binding.provider_session_id = session.provider_session_id
+                WHERE binding.thread_id = t.thread_id
+                  AND session.provider_instance_id = t.provider_instance_id
+                ORDER BY session.updated_at DESC, session.provider_session_id DESC
+                LIMIT 1
+              ) AS agent_session_status,
+              (
                 SELECT item.payload_json
                 FROM orchestration_v2_projection_turn_items item
                   INDEXED BY orchestration_v2_projection_turn_items_thread_run_idx
@@ -5490,6 +5521,7 @@ export const layer: Layer.Layer<ProjectionStoreV2, never, SqlClient.SqlClient> =
               AND json_extract(t.payload_json, '$.settledOverride') IS NULL
               AND json_extract(t.payload_json, '$.pinnedAt') IS NULL
               AND json_extract(t.payload_json, '$.autoSettleDisabledAt') IS NULL
+              AND json_extract(t.payload_json, '$.keepAgentOnAt') IS NULL
               AND NOT EXISTS (
                 SELECT 1 FROM orchestration_v2_projection_runs active
                 WHERE active.thread_id = t.thread_id
@@ -5705,6 +5737,7 @@ export const layer: Layer.Layer<ProjectionStoreV2, never, SqlClient.SqlClient> =
             terminalFailureItem?.type === "error" ? terminalFailureItem.failure : null,
             row.last_error,
           ),
+          agentSessionStatus: agentSessionStatusFromRow(row.agent_session_status),
           pendingRuntimeRequest,
           latestUserMessageAt:
             row.latest_user_message_at === null
@@ -6055,6 +6088,7 @@ export const layerMemory: Layer.Layer<ProjectionStoreV2> = Layer.effect(
                 thread.settledOverride === null &&
                 thread.pinnedAt == null &&
                 thread.autoSettleDisabledAt == null &&
+                thread.keepAgentOnAt == null &&
                 !runs.some(isActivityRunForShell) &&
                 !runtimeRequests.some((request) => request.status === "pending"),
             )

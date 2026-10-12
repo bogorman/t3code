@@ -112,6 +112,7 @@ export function shouldPublishAgentAwarenessEvent(
     case "thread.unsnoozed":
     case "thread.auto-settle-set":
     case "thread.badges-updated":
+    case "thread.keep-agent-on-set":
     case "thread.pinned":
     case "thread.unpinned":
     case "thread.pin-reordered":

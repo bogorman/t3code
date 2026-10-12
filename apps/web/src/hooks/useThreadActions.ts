@@ -293,6 +293,9 @@ export function useThreadActions() {
   const setThreadAutoSettleMutation = useOrchestrationCommand(threadEnvironment.setAutoSettle, {
     reportFailure: false,
   });
+  const setThreadKeepAgentOnMutation = useOrchestrationCommand(threadEnvironment.setKeepAgentOn, {
+    reportFailure: false,
+  });
   const reorderPinnedThreadMutation = useOrchestrationCommand(threadEnvironment.reorderPin, {
     reportFailure: false,
   });
@@ -699,6 +702,16 @@ export function useThreadActions() {
     [setThreadAutoSettleMutation],
   );
 
+  /** Keeps a thread's agent on: never auto-settled, nudged back when it goes offline. */
+  const setThreadKeepAgentOn = useCallback(
+    (target: ScopedThreadRef, enabled: boolean) =>
+      setThreadKeepAgentOnMutation({
+        environmentId: target.environmentId,
+        input: { threadId: target.threadId, enabled },
+      }),
+    [setThreadKeepAgentOnMutation],
+  );
+
   const pinThread = useCallback(
     async (target: ScopedThreadRef, opts: { orderKey?: string } = {}) => {
       // Version skew: never send the command to a server that predates it.
@@ -1024,6 +1037,7 @@ export function useThreadActions() {
       reorderActiveThread,
       markThreadUnread,
       setThreadAutoSettle,
+      setThreadKeepAgentOn,
     }),
     [
       archiveThread,
@@ -1035,6 +1049,7 @@ export function useThreadActions() {
       reorderPinnedThread,
       reorderActiveThread,
       setThreadAutoSettle,
+      setThreadKeepAgentOn,
       settleThread,
       snoozeThread,
       unarchiveThread,

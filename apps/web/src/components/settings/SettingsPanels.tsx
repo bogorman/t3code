@@ -3,6 +3,7 @@ import { useScopedSettingsWriteAllowed } from "./useScopedSettings";
 import { Spinner } from "~/components/ui/spinner";
 import { NotificationSettings } from "./NotificationSettings";
 import { SettlePromptSettings } from "./SettlePromptSettings";
+import { AgentNudgeSettings } from "./AgentNudgeSettings";
 import { PRIVACY_POLICY_URL } from "../../legalLinks";
 import { ArchiveIcon, ArchiveX, CheckIcon, ChevronRightIcon, SettingsIcon } from "lucide-react";
 import { Link, useNavigate } from "@tanstack/react-router";
@@ -429,6 +430,7 @@ function AboutVersionSection() {
   return (
     <>
       <SettingsRow
+        id={searchableSetting("app-version").id}
         title={<AboutVersionTitle />}
         description={description}
         control={
@@ -451,7 +453,7 @@ function AboutVersionSection() {
       />
       {hasDesktopBridge ? (
         <SettingsRow
-          title="Update track"
+          {...searchableSetting("update-track")}
           description="Use stable releases or nightly builds. Switch back anytime."
           control={
             <Select
@@ -483,7 +485,7 @@ function AboutVersionSection() {
         />
       ) : selectedHostedAppChannel ? (
         <SettingsRow
-          title="Update track"
+          {...searchableSetting("update-track")}
           description="Switches the hosted app release channel."
           control={
             <Select
@@ -821,6 +823,7 @@ export function useSettingsRestore(onRestored?: () => void) {
       sidebarAutoSettleAfterDays: DEFAULT_UNIFIED_SETTINGS.sidebarAutoSettleAfterDays,
       sidebarAutoSettleOnMerge: DEFAULT_UNIFIED_SETTINGS.sidebarAutoSettleOnMerge,
       settlePrompt: DEFAULT_UNIFIED_SETTINGS.settlePrompt,
+      agentNudgePrompt: DEFAULT_UNIFIED_SETTINGS.agentNudgePrompt,
       autoResumeLimitedThreads: DEFAULT_UNIFIED_SETTINGS.autoResumeLimitedThreads,
       snoozeLimitedThreads: DEFAULT_UNIFIED_SETTINGS.snoozeLimitedThreads,
       responseStreamingMode: DEFAULT_UNIFIED_SETTINGS.responseStreamingMode,
@@ -2484,6 +2487,7 @@ export function GeneralSettingsPanel() {
               />
             ) : null}
             <SettlePromptSettings />
+            <AgentNudgeSettings />
           </>
         ) : null}
       </SettingsSection>
@@ -3352,6 +3356,7 @@ export function GeneralSettingsPanel() {
         ) : (
           <>
             <SettingsRow
+              id={searchableSetting("app-version").id}
               title={<AboutVersionTitle />}
               description="Current version of the application."
             />

@@ -441,6 +441,7 @@ function commandThreadId(command: OrchestrationV2ServerCommand): ThreadId {
     case "thread.unsnooze":
     case "thread.auto-settle.set":
     case "thread.badge.set":
+    case "thread.keep-agent-on.set":
     case "thread.pin":
     case "thread.unpin":
     case "thread.pin.reorder":
@@ -2382,6 +2383,7 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
           | "thread.unsnooze"
           | "thread.auto-settle.set"
           | "thread.badge.set"
+          | "thread.keep-agent-on.set"
           | "thread.pin"
           | "thread.unpin"
           | "thread.pin.reorder"
@@ -2521,6 +2523,7 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
         command.type === "thread.unsnooze" ||
         command.type === "thread.auto-settle.set" ||
         command.type === "thread.badge.set" ||
+        command.type === "thread.keep-agent-on.set" ||
         command.type === "thread.pin" ||
         command.type === "thread.unpin" ||
         command.type === "thread.pin.reorder" ||
@@ -2621,10 +2624,12 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
       const automaticQueuedRuns = projection.runs.filter(
         (run) => run.status === "queued" && automaticMessageIds.has(run.userMessageId),
       );
-      const activeRunExists = projection.runs.some(
-        (run) =>
-          ["preparing", "queued", "starting", "running", "waiting"].includes(run.status) &&
-          !automaticQueuedRuns.includes(run),
+      const runningRunExists = projection.runs.some((run) =>
+        ["preparing", "starting", "running", "waiting"].includes(run.status),
+      );
+      // Includes a queue held after a Stop, which otherwise shows no activity.
+      const queuedMessageExists = projection.runs.some(
+        (run) => run.status === "queued" && !automaticQueuedRuns.includes(run),
       );
       const pendingRequests = projection.runtimeRequests.filter(
         (request) => request.status === "pending",
@@ -2632,11 +2637,19 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
       const blockingRequestExists = pendingRequests.some(
         (request) => request.kind !== "user_input" || request.responseCapability.type !== "message",
       );
-      if (activeRunExists || blockingRequestExists) {
+      // The reason is shown to the user, so it names what to clear first.
+      const blocker = blockingRequestExists
+        ? "is waiting on an approval or question. Answer it before settling."
+        : runningRunExists
+          ? "is still running. Stop it before settling."
+          : queuedMessageExists
+            ? "has a queued message. Send it or remove it from the queue before settling."
+            : null;
+      if (blocker !== null) {
         return yield* new OrchestratorDispatchError({
           commandId: command.commandId,
           commandType: command.type,
-          cause: `Thread ${command.threadId} has active or blocked work and cannot be settled.`,
+          cause: `Thread ${command.threadId} ${blocker}`,
         });
       }
 
@@ -2874,6 +2887,14 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
                 updatedAt: DateTime.formatIso(now),
               },
             ],
+          };
+        }
+        case "thread.keep-agent-on.set": {
+          const unchanged = command.enabled === (thread.keepAgentOnAt != null);
+          return {
+            ...thread,
+            keepAgentOnAt: command.enabled ? (thread.keepAgentOnAt ?? now) : null,
+            updatedAt: unchanged ? thread.updatedAt : now,
           };
         }
         case "thread.auto-settle.set": {
@@ -3240,6 +3261,8 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
           return "thread.auto-settle-set" as const;
         case "thread.badge.set":
           return "thread.badges-updated" as const;
+        case "thread.keep-agent-on.set":
+          return "thread.keep-agent-on-set" as const;
         case "thread.pin":
           return "thread.pinned" as const;
         case "thread.unpin":
@@ -10491,6 +10514,7 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
       case "thread.unsnooze":
       case "thread.auto-settle.set":
       case "thread.badge.set":
+      case "thread.keep-agent-on.set":
       case "thread.pin":
       case "thread.unpin":
       case "thread.pin.reorder":

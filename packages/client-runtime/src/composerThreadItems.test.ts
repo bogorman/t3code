@@ -47,4 +47,30 @@ describe("matchComposerThreadItems", () => {
     expect(items.map((item) => item.thread.threadId)).toEqual(["new", "old"]);
     expect(items[0]).toMatchObject({ type: "thread", label: "Login redesign" });
   });
+
+  it("matches agent names, labels agent state, and puts live agents first", () => {
+    const items = matchComposerThreadItems({
+      shells: [
+        shell("t1", "Fix login flow", { updatedAt: "2026-01-02T00:00:00.000Z" }),
+        shell("t2", "Fix login tests", { agentSessionStatus: "running" }),
+        shell("t3", "Fix login docs", { agentSessionStatus: "stopped" }),
+      ],
+      environmentId: env,
+      excludeThreadId: null,
+      query: "fix-login",
+    });
+    expect(items.map((item) => [item.label, item.description])).toEqual([
+      ["Fix login tests", "Agent fix-login-tests · working"],
+      ["Fix login flow", "Thread"],
+      ["Fix login docs", "Agent fix-login-docs · offline"],
+    ]);
+    expect(
+      matchComposerThreadItems({
+        shells: [shell("t2", "Fix login tests", { agentSessionStatus: "ready" })],
+        environmentId: env,
+        excludeThreadId: null,
+        query: "my-app/fix-login-tests",
+      }),
+    ).toHaveLength(1);
+  });
 });

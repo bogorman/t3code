@@ -295,6 +295,8 @@ export const OrchestratorMcpThreadListInput = Schema.Struct({
     Schema.Array(OrchestratorMcpThreadStatus).check(Schema.isMaxLength(10)),
   ),
   titleContains: Schema.optional(TrimmedNonEmptyString.check(Schema.isMaxLength(256))),
+  /** An agent name ("project/handle" or "handle"), as t3_thread_list returns in agentName. */
+  agentName: Schema.optional(TrimmedNonEmptyString.check(Schema.isMaxLength(128))),
   settled: Schema.optional(Schema.Boolean),
   snoozed: Schema.optional(Schema.Boolean),
   includeSubagents: Schema.optional(Schema.Boolean),
@@ -306,6 +308,12 @@ export type OrchestratorMcpThreadListInput = typeof OrchestratorMcpThreadListInp
 export const OrchestratorMcpThreadListItem = Schema.Struct({
   threadId: ThreadId,
   title: Schema.String,
+  /** The thread's agent handle (slug of its title); message it with t3_thread_send. */
+  agentName: Schema.optional(Schema.String),
+  /** Its provider session's status, or null when no agent is attached. */
+  agentStatus: Schema.optional(
+    Schema.NullOr(Schema.Literals(["starting", "ready", "running", "waiting", "stopped", "error"])),
+  ),
   createdBy: OrchestrationV2Actor,
   creationSource: OrchestrationV2CreationSource,
   status: OrchestratorMcpThreadStatus,
