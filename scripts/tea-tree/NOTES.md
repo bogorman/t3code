@@ -12,7 +12,8 @@ land upstream. The name is a joke ("T3" in a Dublin accent). Fork: github.com/bo
 | `desktop-thread-links` | desktop app opens `t3code://threads/<environmentId>/<threadId>`                         | fork PR #1    |
 | `settle-prompt`        | "Message on settle" setting: a thread gets one more turn (e.g. a skill) when it settles | fork PR #2    |
 | `thread-badges`        | MCP `t3_thread_badge_set` / `_clear`: badges from outside tools, with a needs-you mark  | fork PR #3    |
-| `tea-tree`             | `main` + the three feature branches + local-only commits                                | what we build |
+| `thread-agents`        | agents on threads: state, names, strip, `@agent`, keep agent on, Nudge                  | issue #7      |
+| `tea-tree`             | `main` + the feature branches + local-only commits                                      | what we build |
 
 - **Feature branches are generic:** nothing specific to Hows or any one tool, so they can go upstream. Nothing has
   been sent upstream; ask the owner first.

@@ -6,7 +6,7 @@
 #   NO_REBASE=1 scripts/tea-tree/build.sh   # just build the current tea-tree branch
 #
 # Feature branches, each a PR in the fork (generic, nothing app-specific):
-#   desktop-thread-links  settle-prompt  thread-badges
+#   desktop-thread-links  settle-prompt  thread-badges  thread-agents
 # Local-only commits on tea-tree (never upstream), re-applied on every rebuild: subjects starting
 # "Tea Tree" or "README" (the TeaTree label, the README note, this script).
 #
@@ -15,7 +15,7 @@
 set -eu
 cd "$(dirname "$0")/../.."
 . "$HOME/.nvm/nvm.sh" >/dev/null && nvm use 24 >/dev/null
-FEATURES="desktop-thread-links settle-prompt thread-badges"
+FEATURES="desktop-thread-links settle-prompt thread-badges thread-agents"
 BASE="${1:-upstream/main}"
 
 if [ -z "${NO_REBASE:-}" ]; then
