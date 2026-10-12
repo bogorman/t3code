@@ -30,6 +30,48 @@ export function restrictBelowSidebarLabel(
   return transform.y < minimumY ? { ...transform, y: minimumY } : transform;
 }
 
+/** Dropping on the middle half of another row links instead of reordering.
+ * Droppable rects are measured at rest (transform-free), so the band is where
+ * the row sits once the list stops shifting: in link mode the only collision
+ * is the lifted row itself, which holds every row still. The target key rides
+ * on that collision's data; read it back with `sidebarLinkTargetOf`. */
+export function withSidebarLinkTarget(
+  detect: CollisionDetection,
+  canLink: (id: string) => boolean,
+): CollisionDetection {
+  return (args) => {
+    const pointer = args.pointerCoordinates;
+    if (pointer) {
+      for (const container of args.droppableContainers) {
+        if (container.id === args.active.id) continue;
+        const rect = args.droppableRects.get(container.id);
+        if (!rect || rect.height === 0) continue;
+        const band = rect.height / 4;
+        if (
+          pointer.x < rect.left ||
+          pointer.x > rect.right ||
+          pointer.y < rect.top + band ||
+          pointer.y > rect.bottom - band
+        ) {
+          continue;
+        }
+        if (canLink(String(container.id))) {
+          return [{ id: args.active.id, data: { linkTargetKey: String(container.id) } }];
+        }
+        break;
+      }
+    }
+    return detect(args);
+  };
+}
+
+export function sidebarLinkTargetOf(
+  collisions: ReadonlyArray<{ readonly data?: Record<string, unknown> }> | null,
+): string | null {
+  const key = collisions?.[0]?.data?.linkTargetKey;
+  return typeof key === "string" ? key : null;
+}
+
 /** Reject the nearest unsupported target without selecting another section.
  * Recreate this detector when drop eligibility changes. */
 export function createSidebarCollisionDetection(

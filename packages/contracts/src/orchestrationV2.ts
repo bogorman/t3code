@@ -414,6 +414,9 @@ export const OrchestrationV2AppThread = Schema.Struct({
   pinOrderKey: Schema.optional(Schema.NullOr(TrimmedNonEmptyString)),
   /** Fractional-index slot in the user-arranged active order. */
   activeOrderKey: Schema.optional(Schema.NullOr(TrimmedNonEmptyString)),
+  /** Threads sharing a link group sit together in the sidebar. Groups have no
+      record of their own: the id exists only on its member threads. */
+  linkGroupId: Schema.optional(Schema.NullOr(TrimmedNonEmptyString)),
   lastVisitedAt: Schema.NullOr(Schema.DateTimeUtc).pipe(
     Schema.withDecodingDefault(Effect.succeed(null)),
   ),
@@ -1754,6 +1757,8 @@ export const OrchestrationV2DomainEvent = Schema.Union([
       "thread.unpinned",
       "thread.pin-reordered",
       "thread.active-reordered",
+      "thread.linked",
+      "thread.unlinked",
       "thread.visited",
       "thread.marked-unread",
       "thread.metadata-updated",
@@ -1999,6 +2004,8 @@ export const OrchestrationV2ThreadShell = Schema.Struct({
   autoSettleDisabledAt: Schema.optional(Schema.NullOr(Schema.DateTimeUtc)),
   /** Slot in the user-arranged pinned order; omitted by pre-reorder servers. */
   pinOrderKey: Schema.optional(Schema.NullOr(TrimmedNonEmptyString)),
+  /** Shared by linked threads; omitted by servers that predate thread links. */
+  linkGroupId: Schema.optional(Schema.NullOr(TrimmedNonEmptyString)),
   /** Slot in the user-arranged active order; omitted by pre-reorder servers. */
   activeOrderKey: Schema.optional(Schema.NullOr(TrimmedNonEmptyString)),
   /**
@@ -2574,6 +2581,8 @@ export const OrchestrationV2DomainEventJson = Schema.Union([
       "thread.unpinned",
       "thread.pin-reordered",
       "thread.active-reordered",
+      "thread.linked",
+      "thread.unlinked",
       "thread.visited",
       "thread.marked-unread",
       "thread.pull-request-synced",
@@ -2793,6 +2802,19 @@ export const OrchestrationV2Command = Schema.Union([
   }),
   Schema.Struct({
     type: Schema.Literal("thread.unpin"),
+    commandId: CommandId,
+    threadId: ThreadId,
+  }),
+  // Joins the thread to a link group. The client picks the id: linking two
+  // unlinked threads sends this for both with a fresh id.
+  Schema.Struct({
+    type: Schema.Literal("thread.link"),
+    commandId: CommandId,
+    threadId: ThreadId,
+    linkGroupId: TrimmedNonEmptyString,
+  }),
+  Schema.Struct({
+    type: Schema.Literal("thread.unlink"),
     commandId: CommandId,
     threadId: ThreadId,
   }),

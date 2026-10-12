@@ -146,6 +146,11 @@ describe("buildThreadActionMenuItems", () => {
     expect(allIds(baseState)).not.toContain("copy-branch");
   });
 
+  it("offers unlink only for linked threads", () => {
+    expect(ids(baseState)).not.toContain("unlink");
+    expect(ids({ ...baseState, isLinked: true })).toContain("unlink");
+  });
+
   it("flips lifecycle labels with thread state", () => {
     expect(ids({ ...baseState, isPinned: true, isSettled: true, isSnoozed: true })).toEqual(
       expect.arrayContaining(["unpin", "unsettle", "unsnooze"]),

@@ -729,6 +729,8 @@ export function applyToProjection(
     case "thread.auto-settle-set":
     case "thread.pinned":
     case "thread.unpinned":
+    case "thread.linked":
+    case "thread.unlinked":
     case "thread.pin-reordered":
     case "thread.active-reordered":
     case "thread.metadata-updated":
@@ -1539,6 +1541,7 @@ export function threadShellFromProjection(
 
     autoSettleDisabledAt: projection.thread.autoSettleDisabledAt ?? null,
     pinOrderKey: projection.thread.pinOrderKey ?? null,
+    linkGroupId: projection.thread.linkGroupId ?? null,
     lastVisitedAt: projection.thread.lastVisitedAt,
     titleRegeneration: projection.thread.titleRegeneration ?? null,
     limitRecovery: projection.thread.limitRecovery ?? null,
@@ -1794,6 +1797,7 @@ function shellFromState(input: {
 
     autoSettleDisabledAt: input.state.thread.autoSettleDisabledAt ?? null,
     pinOrderKey: input.state.thread.pinOrderKey ?? null,
+    linkGroupId: input.state.thread.linkGroupId ?? null,
     lastVisitedAt: input.state.thread.lastVisitedAt,
     titleRegeneration: input.state.thread.titleRegeneration ?? null,
     limitRecovery: input.state.thread.limitRecovery ?? null,
@@ -1834,6 +1838,8 @@ export const layer: Layer.Layer<ProjectionStoreV2, never, SqlClient.SqlClient> =
           case "thread.auto-settle-set":
           case "thread.pinned":
           case "thread.unpinned":
+          case "thread.linked":
+          case "thread.unlinked":
           case "thread.pin-reordered":
           case "thread.active-reordered":
           case "thread.visited":
@@ -2666,6 +2672,8 @@ export const layer: Layer.Layer<ProjectionStoreV2, never, SqlClient.SqlClient> =
           event.type !== "thread.auto-settle-set" &&
           event.type !== "thread.pinned" &&
           event.type !== "thread.unpinned" &&
+          event.type !== "thread.linked" &&
+          event.type !== "thread.unlinked" &&
           event.type !== "thread.pin-reordered" &&
           event.type !== "thread.visited" &&
           event.type !== "thread.marked-unread" &&

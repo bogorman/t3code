@@ -61,6 +61,7 @@ import { showThreadUndoNotice } from "./showThreadUndoNotice";
 import { useAtomCommand } from "../state/use-atom-command";
 import { useOrchestrationCommand } from "../state/use-orchestration-command";
 import { useAtomQueryRunner } from "../state/use-atom-query-runner";
+import { randomUUID } from "~/lib/utils";
 
 export class ThreadArchiveBlockedError extends Schema.TaggedError<ThreadArchiveBlockedError>()(
   "ThreadArchiveBlockedError",
@@ -288,6 +289,12 @@ export function useThreadActions() {
     reportFailure: false,
   });
   const unpinThreadMutation = useOrchestrationCommand(threadEnvironment.unpin, {
+    reportFailure: false,
+  });
+  const linkThreadMutation = useOrchestrationCommand(threadEnvironment.link, {
+    reportFailure: false,
+  });
+  const unlinkThreadMutation = useOrchestrationCommand(threadEnvironment.unlink, {
     reportFailure: false,
   });
   const setThreadAutoSettleMutation = useOrchestrationCommand(threadEnvironment.setAutoSettle, {
@@ -767,6 +774,37 @@ export function useThreadActions() {
     [pinThread, unpinThreadMutation],
   );
 
+  // Moves `source` into `target`'s link group, starting a new group of the
+  // two when `target` has none. Callers offer this only for two threads on
+  // one environment whose server supports linking.
+  const linkThreads = useCallback(
+    async (source: ScopedThreadRef, target: ScopedThreadRef) => {
+      const existing = readThreadShell(target)?.linkGroupId ?? null;
+      const linkGroupId = existing ?? randomUUID();
+      if (existing === null) {
+        const started = await linkThreadMutation({
+          environmentId: target.environmentId,
+          input: { threadId: target.threadId, linkGroupId },
+        });
+        if (started._tag !== "Success") return started;
+      }
+      return linkThreadMutation({
+        environmentId: source.environmentId,
+        input: { threadId: source.threadId, linkGroupId },
+      });
+    },
+    [linkThreadMutation],
+  );
+
+  const unlinkThread = useCallback(
+    (target: ScopedThreadRef) =>
+      unlinkThreadMutation({
+        environmentId: target.environmentId,
+        input: { threadId: target.threadId },
+      }),
+    [unlinkThreadMutation],
+  );
+
   const settleThread = useCallback(
     async (target: ScopedThreadRef) => {
       // Version skew: never send the command to a server that predates it —
@@ -1020,6 +1058,8 @@ export function useThreadActions() {
       pinThread,
       unpinThread,
       confirmAndUnpinThread,
+      linkThreads,
+      unlinkThread,
       reorderPinnedThread,
       reorderActiveThread,
       markThreadUnread,
@@ -1030,6 +1070,7 @@ export function useThreadActions() {
       confirmAndDeleteThread,
       confirmAndUnpinThread,
       deleteThread,
+      linkThreads,
       markThreadUnread,
       pinThread,
       reorderPinnedThread,
@@ -1038,6 +1079,7 @@ export function useThreadActions() {
       settleThread,
       snoozeThread,
       unarchiveThread,
+      unlinkThread,
       unpinThread,
       unsettleThread,
       unsnoozeThread,

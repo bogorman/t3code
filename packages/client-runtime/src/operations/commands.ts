@@ -97,6 +97,11 @@ export interface PinThreadInput extends ThreadCommandInput {
 }
 export type UnpinThreadInput = ThreadCommandInput;
 
+export interface LinkThreadInput extends ThreadCommandInput {
+  readonly linkGroupId: string;
+}
+export type UnlinkThreadInput = ThreadCommandInput;
+
 export interface ReorderPinnedThreadInput extends ThreadCommandInput {
   /** Fractional-index key that sorts between the drop position's neighbors. */
   readonly orderKey: string;
@@ -420,7 +425,8 @@ function simpleThreadCommand(
     | "thread.unarchive"
     | "thread.settle"
     | "thread.pin"
-    | "thread.unpin",
+    | "thread.unpin"
+    | "thread.unlink",
   input: ThreadCommandInput,
 ) {
   return allocateCommandId(input).pipe(
@@ -505,6 +511,23 @@ export const unpinThread = Effect.fn("EnvironmentCommands.unpinThread")(function
   input: UnpinThreadInput,
 ) {
   return yield* simpleThreadCommand("thread.unpin", input);
+});
+
+export const linkThread = Effect.fn("EnvironmentCommands.linkThread")(function* (
+  input: LinkThreadInput,
+) {
+  return yield* dispatch({
+    type: "thread.link",
+    commandId: yield* allocateCommandId(input),
+    threadId: input.threadId,
+    linkGroupId: input.linkGroupId,
+  });
+});
+
+export const unlinkThread = Effect.fn("EnvironmentCommands.unlinkThread")(function* (
+  input: UnlinkThreadInput,
+) {
+  return yield* simpleThreadCommand("thread.unlink", input);
 });
 
 export const unsettleThread = Effect.fn("EnvironmentCommands.unsettleThread")(function* (

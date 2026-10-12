@@ -12,6 +12,7 @@ export type ThreadActionMenuId =
   | "project-settings"
   | "pin"
   | "unpin"
+  | "unlink"
   | "settle"
   | "unsettle"
   | "auto-settle"
@@ -82,6 +83,8 @@ export interface ThreadActionMenuState {
     readonly isActive: boolean;
   } | null;
   readonly isPinned: boolean;
+  /** True when the thread shares a link group; shows "Unlink thread". */
+  readonly isLinked?: boolean;
   readonly isSettled: boolean;
   /** False while the user has turned automatic settlement off for this thread. */
   readonly autoSettleEnabled: boolean;
@@ -139,6 +142,7 @@ export function buildThreadActionMenuItems(
             : { id: "pin" as const, label: "Pin thread", icon: "pin" },
         ]
       : []),
+    ...(state.isLinked ? [{ id: "unlink" as const, label: "Unlink thread", icon: "unlink" }] : []),
     // Both lifecycle actions stay available on pinned threads: settling
     // clears the pin ("done" beats "keep on top"), and snoozing hides the
     // card until wake with the pin intact.

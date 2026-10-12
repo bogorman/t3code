@@ -217,6 +217,8 @@ export const layer: Layer.Layer<
       "thread.pinned",
       "thread.auto-settle-set",
       "thread.unpinned",
+      "thread.linked",
+      "thread.unlinked",
       "thread.pin-reordered",
       "thread.active-reordered",
       "thread.metadata-updated",

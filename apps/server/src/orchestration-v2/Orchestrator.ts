@@ -445,6 +445,8 @@ function commandThreadId(command: OrchestrationV2ServerCommand): ThreadId {
     case "thread.auto-settle.set":
     case "thread.pin":
     case "thread.unpin":
+    case "thread.link":
+    case "thread.unlink":
     case "thread.pin.reorder":
     case "thread.active.reorder":
     case "thread.visit":
@@ -2418,6 +2420,8 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
           | "thread.auto-settle.set"
           | "thread.pin"
           | "thread.unpin"
+          | "thread.link"
+          | "thread.unlink"
           | "thread.pin.reorder"
           | "thread.active.reorder"
           | "thread.mark-unread"
@@ -2556,6 +2560,8 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
         command.type === "thread.auto-settle.set" ||
         command.type === "thread.pin" ||
         command.type === "thread.unpin" ||
+        command.type === "thread.link" ||
+        command.type === "thread.unlink" ||
         command.type === "thread.pin.reorder" ||
         command.type === "thread.active.reorder" ||
         command.type === "thread.pull-request.sync") &&
@@ -2928,6 +2934,16 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
             updatedAt: alreadyUnpinned ? thread.updatedAt : now,
           };
         }
+        case "thread.link":
+        case "thread.unlink": {
+          const linkGroupId = command.type === "thread.link" ? command.linkGroupId : null;
+          // A repeated link or unlink keeps updatedAt so it projects as a no-op.
+          return {
+            ...thread,
+            linkGroupId,
+            updatedAt: (thread.linkGroupId ?? null) === linkGroupId ? thread.updatedAt : now,
+          };
+        }
         case "thread.pin.reorder": {
           // Idempotent by re-emission (see thread.settle): a duplicate drop on
           // the same slot keeps the existing updatedAt so it projects as a
@@ -3251,6 +3267,10 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
           return "thread.pinned" as const;
         case "thread.unpin":
           return "thread.unpinned" as const;
+        case "thread.link":
+          return "thread.linked" as const;
+        case "thread.unlink":
+          return "thread.unlinked" as const;
         case "thread.pin.reorder":
           return "thread.pin-reordered" as const;
         case "thread.active.reorder":
@@ -10742,6 +10762,8 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
       case "thread.auto-settle.set":
       case "thread.pin":
       case "thread.unpin":
+      case "thread.link":
+      case "thread.unlink":
       case "thread.pin.reorder":
       case "thread.active.reorder":
       case "thread.mark-unread":
