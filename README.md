@@ -1,27 +1,63 @@
-# T3 Code
+# T3 Code (TeaTree)
 
-> [!NOTE]
-> **This is Tea Tree Code: the Irish edition of T3 Code.** Say "T3" in a Dublin accent and you'll get it.
-> It's a personal fork of [pingdotgg/t3code](https://github.com/pingdotgg/t3code) that we build ourselves to try
-> changes before they land upstream. The app it builds is labelled **T3 Code (TeaTree)**.
->
-> - `main` tracks upstream unchanged.
-> - Feature branches, each a PR in this fork, and generic (nothing specific to any one tool):
->   - `desktop-thread-links` (#1): the desktop app opens `t3code://threads/<environmentId>/<threadId>`
->   - `settle-prompt` (#2): message on settle
->   - `thread-badges` (#3): badges from outside tools on threads, with a needs-you mark
-> - `tea-tree` = upstream + those branches + local-only commits (the TeaTree label, this note, the build script).
->
-> To rebuild on a new upstream release, run `scripts/tea-tree/build.sh [tag]`. It rebases the features, rebuilds
-> `tea-tree` and builds a DMG with a `-preview` version, which has no update feed, so the official updater won't
-> replace it. Needs Node 24, pnpm 11 and Rust 1.95+.
->
-> Full notes (build, install, data, switching back, risks): `scripts/tea-tree/NOTES.md`.
->
-> Data: TeaTree has its own bundle id (`com.t3tools.t3code.teatree`) and its own folder, `~/.t3-teatree`. Seed the
-> folder once with `scripts/tea-tree/seed-home.sh` (quit both apps first): it copies the official app's threads,
-> settings and sign-ins. After that the two apps never touch each other's files, so switching back is just opening
-> the official app. Threads started in one don't show in the other. Don't run both at once (same port).
+**Tea Tree Code: the Irish edition of T3 Code.** Say "T3" in a Dublin accent and you'll get it.
+
+This is our own build of [T3 Code](https://github.com/pingdotgg/t3code): upstream plus a few features we want for how
+we run agents, tracked as [issues](https://github.com/bogorman/t3code/issues?q=label%3Atea-tree) in this fork. The app
+is labelled **T3 Code (TeaTree)** and installs beside the official one. Nothing here is specific to any one outside
+tool: other tools talk to it through T3 Code's MCP server, links and settings.
+
+## Our features
+
+| Feature | Issue | Branch | State |
+|---|---|---|---|
+| **Thread links on the desktop:** `t3code://threads/<environmentId>/<threadId>` opens that thread, even with the window closed | [#4](https://github.com/bogorman/t3code/issues/4) | `desktop-thread-links` | built |
+| **Message on settle:** a thread gets one more turn (e.g. a wrap-up skill) when it settles | [#5](https://github.com/bogorman/t3code/issues/5) | `settle-prompt` | built |
+| **Thread badges** from outside tools (MCP), with a needs-you mark | [#6](https://github.com/bogorman/t3code/issues/6) | `thread-badges` | built |
+| **Agents on threads:** live-agent state, agent names, agents strip, `@agent` mentions, keep an agent on, Nudge | [#7](https://github.com/bogorman/t3code/issues/7) | `thread-agents` | built |
+
+Each feature has its own branch off upstream `main` and its commits reference the issue. Mockups live with the
+feature under [`docs/tea-tree/`](docs/tea-tree/).
+
+### Agents on threads
+
+![Agents on threads mockup](docs/tea-tree/agents-on-threads/mockup.png)
+
+- **On each thread:** a dot on the provider icon shows its agent: working, needs you, idle or offline.
+- **Hover card:** the agent's name (`project/thread-title`), its state, Copy, and Nudge when offline.
+- **Agents strip:** above the list, projects with live agents, needing-you first; click to filter.
+- **`@` in the composer:** finds threads by title or agent name, live agents first, so you can point one agent at
+  another. Agents can also find each other with `t3_thread_list(agentName)` and message with `t3_thread_send`.
+- **Keep agent on** (thread menu): never auto-settled; if its session goes offline, T3 sends the project's
+  **Nudge message** (Settings → Thread behavior) to start it again.
+
+## Branches
+
+- `main`: upstream, unchanged.
+- One branch per feature (above), generic and rebased onto upstream for each release.
+- `tea-tree`: `main` + the feature branches + local-only commits (the TeaTree name, this README, `scripts/tea-tree/`).
+  This is what we build.
+
+## Build and install
+
+```sh
+scripts/tea-tree/build.sh          # rebase features onto upstream/main, rebuild tea-tree, build the DMG
+scripts/tea-tree/build.sh v0.0.46  # same, on a release tag
+scripts/tea-tree/seed-home.sh      # once: copy the official app's threads and settings into ~/.t3-teatree
+```
+
+The DMG lands in `release/`. It has no update feed, so the official updater never replaces it: rebuild when upstream
+releases. Needs Node 24, pnpm 11 and Rust 1.95+.
+
+**Data:** TeaTree has its own bundle id (`com.t3tools.t3code.teatree`) and folder (`~/.t3-teatree`), so the official
+app's `~/.t3` is never touched and switching back is just opening the official app. Threads started in one app don't
+show in the other, and the two shouldn't run at once (same port).
+
+Full notes: [`scripts/tea-tree/NOTES.md`](scripts/tea-tree/NOTES.md).
+
+---
+
+## About T3 Code (upstream)
 
 T3 Code is an "agent harness control surface". It enables control of the agents on your machine with a best-in-class mobile app ([iOS](https://apps.apple.com/us/app/t3-code-remote-claude-more/id6787819824), [Android](https://play.google.com/store/apps/details?id=com.t3tools.t3code)), [web app](https://app.t3.codes) and [Electron-based desktop app](https://t3.codes).
 
