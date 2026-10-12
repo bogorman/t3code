@@ -1,6 +1,14 @@
+import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/models";
+import { resolveProjectSettings } from "@t3tools/shared/projectSettings";
 import { CopyIcon } from "lucide-react";
+import { useState } from "react";
 
 import { useCopyToClipboard } from "../../hooks/useCopyToClipboard";
+import { useEnvironmentSettings } from "../../hooks/useSettings";
+import { newMessageId } from "../../lib/utils";
+import { threadEnvironment } from "../../state/threads";
+import { useOrchestrationCommand } from "../../state/use-orchestration-command";
+import { stackedThreadToast, toastManager } from "../ui/toast";
 import { cn } from "../../lib/utils";
 import type { SidebarAgentState } from "../Sidebar.logic";
 
@@ -38,7 +46,12 @@ export function SidebarAgentDot(props: { state: SidebarAgentState; className?: s
 }
 
 /** The hover card's agent line: its name (to address it from another agent) and state. */
-export function SidebarAgentDetails(props: { name: string; state: SidebarAgentState }) {
+export function SidebarAgentDetails(props: {
+  name: string;
+  state: SidebarAgentState;
+  keptOn?: boolean;
+  thread?: NudgeableThread;
+}) {
   const { copyToClipboard, isCopied } = useCopyToClipboard();
   if (props.state === "none") return null;
   return (
@@ -49,7 +62,11 @@ export function SidebarAgentDetails(props: { name: string; state: SidebarAgentSt
       <div className="min-w-0 flex-1 truncate">
         <span className="font-mono text-foreground/85">{props.name}</span>
         <span className="text-muted-foreground"> · {STATE_LABELS[props.state]}</span>
+        {props.keptOn ? <span className="text-muted-foreground"> · kept on</span> : null}
       </div>
+      {props.state === "offline" && props.thread ? (
+        <NudgeAgentButton thread={props.thread} />
+      ) : null}
       <button
         type="button"
         aria-label="Copy agent name"
@@ -70,6 +87,8 @@ export interface SidebarAgentProjectSummary {
   readonly displayName: string;
   readonly active: number;
   readonly needsYou: number;
+  /** A kept-on agent in this project that is offline, to nudge from the strip. */
+  readonly offlineKeptOn: NudgeableThread | null;
 }
 
 /** Above the thread list: the projects with live agents, needing-you first. Click filters to it. */
@@ -83,6 +102,19 @@ export function SidebarAgentStrip(props: {
     <div className="flex flex-wrap gap-1 px-2 pt-1.5" aria-label="Projects with active agents">
       {props.projects.map((project) => {
         const selected = project.projectKey === props.selectedProjectKey;
+        if (project.active === 0 && project.offlineKeptOn !== null) {
+          return (
+            <span
+              key={project.projectKey}
+              title="Its kept-on agent is offline"
+              className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-dashed border-muted-foreground/40 px-2 py-0.5 text-xs text-muted-foreground"
+            >
+              <span className="size-1.5 shrink-0 rounded-full border border-dashed border-muted-foreground" />
+              <span className="truncate">{project.displayName} · offline</span>
+              <NudgeAgentButton thread={project.offlineKeptOn} />
+            </span>
+          );
+        }
         return (
           <button
             key={project.projectKey}
@@ -110,5 +142,56 @@ export function SidebarAgentStrip(props: {
         );
       })}
     </div>
+  );
+}
+
+type NudgeableThread = Pick<
+  EnvironmentThreadShell,
+  "environmentId" | "projectId" | "id" | "runtimeMode" | "interactionMode"
+>;
+
+/**
+ * Brings an offline agent back: sends its project's nudge message (Settings →
+ * Thread behavior → Nudge message), which starts its session again.
+ */
+export function NudgeAgentButton(props: { thread: NudgeableThread; className?: string }) {
+  const text = useEnvironmentSettings(
+    props.thread.environmentId,
+    (settings) =>
+      resolveProjectSettings(settings, props.thread.projectId).settings.agentNudgePrompt,
+  );
+  const startTurn = useOrchestrationCommand(threadEnvironment.startTurn, { reportFailure: false });
+  const [sending, setSending] = useState(false);
+  return (
+    <button
+      type="button"
+      disabled={sending}
+      className={cn(
+        "shrink-0 text-xs text-info hover:underline disabled:opacity-50",
+        props.className,
+      )}
+      onClick={async (event) => {
+        event.stopPropagation();
+        setSending(true);
+        const result = await startTurn({
+          environmentId: props.thread.environmentId,
+          input: {
+            threadId: props.thread.id,
+            message: { messageId: newMessageId(), role: "user", text, attachments: [] },
+            runtimeMode: props.thread.runtimeMode,
+            interactionMode: props.thread.interactionMode,
+            dispatchMode: "start",
+          },
+        });
+        setSending(false);
+        if (result._tag === "Failure") {
+          toastManager.add(
+            stackedThreadToast({ type: "error", title: "Could not nudge the agent" }),
+          );
+        }
+      }}
+    >
+      {sending ? "Nudging…" : "Nudge"}
+    </button>
   );
 }

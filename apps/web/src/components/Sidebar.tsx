@@ -509,6 +509,8 @@ function SidebarThreadTooltip({
         <SidebarAgentDetails
           name={threadAgentName(projectDisplayName ?? "", thread.title)}
           state={resolveSidebarAgentState(thread)}
+          keptOn={thread.keepAgentOnAt != null}
+          thread={thread}
         />
         {environmentLabel ? (
           <div className="flex min-w-0 items-center gap-2">
@@ -2461,6 +2463,7 @@ export default function Sidebar() {
     unpinThread,
     confirmAndUnpinThread,
     setThreadAutoSettle,
+    setThreadKeepAgentOn,
     reorderPinnedThread,
     reorderActiveThread,
     markThreadUnread,
@@ -2669,18 +2672,30 @@ export default function Sidebar() {
         ),
       ),
     );
-    const summaries = new Map<string, { displayName: string; active: number; needsYou: number }>();
+    const summaries = new Map<
+      string,
+      Omit<SidebarAgentProjectSummary, "projectKey"> & { active: number; needsYou: number }
+    >();
     for (const thread of threads) {
       if (thread.archivedAt !== null || thread.settledOverride === "settled") continue;
       const state = resolveSidebarAgentState(thread);
-      if (!sidebarAgentIsActive(state)) continue;
+      const offlineKeptOn = state === "offline" && thread.keepAgentOnAt != null;
+      if (!sidebarAgentIsActive(state) && !offlineKeptOn) continue;
       const group = groupKeyByProject.get(`${thread.environmentId}:${thread.projectId}`);
       if (group === undefined) continue;
       const summary = summaries.get(group.projectKey) ?? {
         displayName: group.displayName,
         active: 0,
         needsYou: 0,
+        offlineKeptOn: null,
       };
+      if (offlineKeptOn) {
+        summaries.set(group.projectKey, {
+          ...summary,
+          offlineKeptOn: summary.offlineKeptOn ?? thread,
+        });
+        continue;
+      }
       summary.active += 1;
       if (state === "needs-you") summary.needsYou += 1;
       summaries.set(group.projectKey, summary);
@@ -4748,6 +4763,7 @@ export default function Sidebar() {
               isPinned,
               isSettled,
               autoSettleEnabled: thread.autoSettleDisabledAt == null,
+              keepAgentOn: thread.keepAgentOnAt != null,
               isSnoozed,
               canSnoozeNow: canSnooze(thread, { now: new Date().toISOString() }),
               isRegeneratingTitle,
@@ -4831,6 +4847,24 @@ export default function Sidebar() {
           case "unpin":
             attemptUnpin(threadRef);
             return;
+          case "keep-agent-on:on":
+          case "keep-agent-on:off": {
+            const result = await setThreadKeepAgentOn(
+              threadRef,
+              clicked.value === "keep-agent-on:on",
+            );
+            if (result._tag === "Failure" && !isAtomCommandInterrupted(result)) {
+              const error = squashAtomCommandFailure(result);
+              toastManager.add(
+                stackedThreadToast({
+                  type: "error",
+                  title: "Failed to update keep agent on",
+                  description: error instanceof Error ? error.message : "An error occurred.",
+                }),
+              );
+            }
+            return;
+          }
           case "auto-settle:enabled":
           case "auto-settle:disabled": {
             const result = await setThreadAutoSettle(
@@ -4976,6 +5010,7 @@ export default function Sidebar() {
       serverConfigs,
       setProjectScopeKey,
       setThreadAutoSettle,
+      setThreadKeepAgentOn,
       startThreadRename,
       updateThreadMetadata,
       timestampFormat,

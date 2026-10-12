@@ -443,6 +443,7 @@ function commandThreadId(command: OrchestrationV2ServerCommand): ThreadId {
     case "thread.snooze":
     case "thread.unsnooze":
     case "thread.auto-settle.set":
+    case "thread.keep-agent-on.set":
     case "thread.pin":
     case "thread.unpin":
     case "thread.pin.reorder":
@@ -2416,6 +2417,7 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
           | "thread.snooze"
           | "thread.unsnooze"
           | "thread.auto-settle.set"
+          | "thread.keep-agent-on.set"
           | "thread.pin"
           | "thread.unpin"
           | "thread.pin.reorder"
@@ -2554,6 +2556,7 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
         command.type === "thread.snooze" ||
         command.type === "thread.unsnooze" ||
         command.type === "thread.auto-settle.set" ||
+        command.type === "thread.keep-agent-on.set" ||
         command.type === "thread.pin" ||
         command.type === "thread.unpin" ||
         command.type === "thread.pin.reorder" ||
@@ -2883,6 +2886,14 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
             snoozedAt: null,
             lastSnoozeWakeAt: alreadyAwake ? thread.lastSnoozeWakeAt : now,
             updatedAt: alreadyAwake ? thread.updatedAt : now,
+          };
+        }
+        case "thread.keep-agent-on.set": {
+          const unchanged = command.enabled === (thread.keepAgentOnAt != null);
+          return {
+            ...thread,
+            keepAgentOnAt: command.enabled ? (thread.keepAgentOnAt ?? now) : null,
+            updatedAt: unchanged ? thread.updatedAt : now,
           };
         }
         case "thread.auto-settle.set": {
@@ -3247,6 +3258,8 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
           return "thread.unsnoozed" as const;
         case "thread.auto-settle.set":
           return "thread.auto-settle-set" as const;
+        case "thread.keep-agent-on.set":
+          return "thread.keep-agent-on-set" as const;
         case "thread.pin":
           return "thread.pinned" as const;
         case "thread.unpin":
@@ -10740,6 +10753,7 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
       case "thread.snooze":
       case "thread.unsnooze":
       case "thread.auto-settle.set":
+      case "thread.keep-agent-on.set":
       case "thread.pin":
       case "thread.unpin":
       case "thread.pin.reorder":
