@@ -102,6 +102,8 @@ export interface EnvironmentThreadShell {
   readonly lineage: OrchestrationV2ThreadShell["lineage"];
   readonly forkedFrom: OrchestrationV2ThreadShell["forkedFrom"];
   readonly activeProviderThreadId: OrchestrationV2ThreadShell["activeProviderThreadId"];
+  /** The thread's agent: its provider session's status; null when none is attached. */
+  readonly agentSessionStatus: NonNullable<OrchestrationV2ThreadShell["agentSessionStatus"]> | null;
   readonly latestRun: ThreadRunSummary | null;
   readonly runtime: ThreadRuntimeSummary | null;
   readonly latestUserMessageAt: string | null;
@@ -248,6 +250,7 @@ export function presentThreadShell(
     lineage: thread.lineage,
     forkedFrom: thread.forkedFrom,
     activeProviderThreadId: thread.activeProviderThreadId,
+    agentSessionStatus: thread.agentSessionStatus ?? null,
     latestRun,
     runtime: shellRuntime(thread),
     latestUserMessageAt: nullableIso(thread.latestUserMessageAt),
