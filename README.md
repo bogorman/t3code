@@ -9,12 +9,14 @@ tool: other tools talk to it through T3 Code's MCP server, links and settings.
 
 ## Our features
 
-| Feature | Issue | Branch | State |
-|---|---|---|---|
+| Feature                                                                                                                       | Issue                                             | Branch                 | State |
+| ----------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- | ---------------------- | ----- |
 | **Thread links on the desktop:** `t3code://threads/<environmentId>/<threadId>` opens that thread, even with the window closed | [#4](https://github.com/bogorman/t3code/issues/4) | `desktop-thread-links` | built |
-| **Message on settle:** a thread gets one more turn (e.g. a wrap-up skill) when it settles | [#5](https://github.com/bogorman/t3code/issues/5) | `settle-prompt` | built |
-| **Thread badges** from outside tools (MCP), with a needs-you mark | [#6](https://github.com/bogorman/t3code/issues/6) | `thread-badges` | built |
-| **Agents on threads:** live-agent state, agent names, agents strip, `@agent` mentions, keep an agent on, Nudge | [#7](https://github.com/bogorman/t3code/issues/7) | `thread-agents` | built |
+| **Message on settle:** a thread gets one more turn (e.g. a wrap-up skill) when it settles                                     | [#5](https://github.com/bogorman/t3code/issues/5) | `settle-prompt`        | built |
+| **Thread badges** from outside tools (MCP), with a needs-you mark                                                             | [#6](https://github.com/bogorman/t3code/issues/6) | `thread-badges`        | built |
+| **Agents on threads:** live-agent state, agent names, agents strip, `@agent` mentions, keep an agent on, Nudge                | [#7](https://github.com/bogorman/t3code/issues/7) | `thread-agents`        | built |
+| **Project pills** under the sidebar search, with a dot on projects whose hidden threads need you                              | [#8](https://github.com/bogorman/t3code/issues/8) | `project-pills`        | built |
+| **Linked threads:** drag a thread onto another to keep them together in the sidebar                                           | [#9](https://github.com/bogorman/t3code/issues/9) | `thread-link-groups`   | built |
 
 Each feature has its own branch off upstream `main` and its commits reference the issue. Mockups live with the
 feature under [`docs/tea-tree/`](docs/tea-tree/).

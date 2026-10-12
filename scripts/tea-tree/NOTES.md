@@ -13,6 +13,8 @@ land upstream. The name is a joke ("T3" in a Dublin accent). Fork: github.com/bo
 | `settle-prompt`        | "Message on settle" setting: a thread gets one more turn (e.g. a skill) when it settles | fork PR #2    |
 | `thread-badges`        | MCP `t3_thread_badge_set` / `_clear`: badges from outside tools, with a needs-you mark  | fork PR #3    |
 | `thread-agents`        | agents on threads: state, names, strip, `@agent`, keep agent on, Nudge                  | issue #7      |
+| `project-pills`        | project pills under the sidebar search, needs-you dot on hidden projects                | issue #8      |
+| `thread-link-groups`   | linked threads: drag one onto another, shared card, Unlink                              | issue #9      |
 | `tea-tree`             | `main` + the feature branches + local-only commits                                      | what we build |
 
 - **Feature branches are generic:** nothing specific to Hows or any one tool, so they can go upstream. Nothing has
