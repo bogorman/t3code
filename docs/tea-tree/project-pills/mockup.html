@@ -1,0 +1,208 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Project pills: mockup</title>
+    <style>
+      body {
+        margin: 0;
+        background: #151517;
+        color: #e8e8e8;
+        font:
+          14px/1.3 -apple-system,
+          "SF Pro Text",
+          system-ui,
+          sans-serif;
+        padding: 28px;
+      }
+      h1 {
+        font-size: 18px;
+        font-weight: 600;
+        margin: 0 0 4px;
+      }
+      p.lead {
+        color: #8a8a8e;
+        margin: 0 0 24px;
+        max-width: 760px;
+      }
+      .frames {
+        display: flex;
+        gap: 28px;
+      }
+      .frame {
+        width: 360px;
+      }
+      .frame h2 {
+        font-size: 13px;
+        font-weight: 600;
+        margin: 0 0 4px;
+      }
+      .frame .cap {
+        color: #8a8a8e;
+        font-size: 12px;
+        margin: 0 0 10px;
+        min-height: 32px;
+      }
+      .sidebar {
+        background: #0a0a0a;
+        border: 1px solid #2a2a2d;
+        border-radius: 12px;
+        padding: 8px;
+      }
+      .search {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: #8a8a8e;
+        padding: 6px 8px;
+      }
+      .pills {
+        display: flex;
+        gap: 2px;
+        padding: 4px 0 6px;
+        overflow: hidden;
+        white-space: nowrap;
+      }
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        height: 24px;
+        padding: 0 10px;
+        border-radius: 999px;
+        font-size: 12px;
+        color: #8a8a8e;
+      }
+      .pill.on {
+        background: #2a2a2e;
+        color: #e8e8e8;
+      }
+      .dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: #f59e0b;
+      }
+      .mono {
+        width: 14px;
+        height: 14px;
+        border-radius: 4px;
+        font-size: 7px;
+        font-weight: 700;
+        display: grid;
+        place-items: center;
+      }
+      .hw {
+        color: #34d399;
+        background: rgba(52, 211, 153, 0.15);
+      }
+      .pv {
+        color: #a78bfa;
+        background: rgba(167, 139, 250, 0.16);
+      }
+      .wu {
+        color: #38bdf8;
+        background: rgba(56, 189, 248, 0.14);
+      }
+      .le {
+        color: #fb7185;
+        background: rgba(251, 113, 133, 0.14);
+      }
+      .row {
+        border-radius: 10px;
+        padding: 9px 12px;
+      }
+      .top {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        font-size: 13px;
+        color: #8a8a8e;
+      }
+      .top .mono {
+        width: 18px;
+        height: 18px;
+        font-size: 9px;
+        border-radius: 5px;
+      }
+      .meta {
+        margin-left: auto;
+        font-size: 12px;
+      }
+      .title {
+        margin-top: 5px;
+        color: #cfcfd2;
+      }
+      .warn {
+        color: #f59e0b;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Project pills</h1>
+    <p class="lead">
+      A row of pills under the sidebar search filters the thread list to one project, in one click.
+      It drives the same saved scope as the filter button. While filtered, a pill gets an amber dot
+      when one of that project's hidden threads needs you: a pending approval or question, or a run
+      that failed or hit a limit.
+    </p>
+    <div class="frames">
+      <div class="frame">
+        <h2>All projects</h2>
+        <p class="cap">No filter, no dots: every thread is already in the list.</p>
+        <div class="sidebar">
+          <div class="search">⌕ Search</div>
+          <div class="pills">
+            <span class="pill on">All</span>
+            <span class="pill"><span class="mono hw">HW</span>howsitgoing</span>
+            <span class="pill"><span class="mono pv">PV</span>playvesting</span>
+            <span class="pill"><span class="mono wu">WU</span>wush</span>
+            <span class="pill"><span class="mono le">LE</span>lexie</span>
+          </div>
+          <div class="row">
+            <div class="top">
+              <span class="mono hw">HW</span>howsitgoing<span class="meta">now</span>
+            </div>
+            <div class="title">Settle digest on Today</div>
+          </div>
+          <div class="row">
+            <div class="top">
+              <span class="mono wu">WU</span>wush<span class="meta warn">Approval</span>
+            </div>
+            <div class="title">Deploy preview environment</div>
+          </div>
+          <div class="row">
+            <div class="top"><span class="mono le">LE</span>lexie<span class="meta">2h</span></div>
+            <div class="title">Contract clause search</div>
+          </div>
+        </div>
+      </div>
+      <div class="frame">
+        <h2>Filtered to howsitgoing</h2>
+        <p class="cap">wush has a thread waiting on an approval, so its pill shows a dot.</p>
+        <div class="sidebar">
+          <div class="search">⌕ Search</div>
+          <div class="pills">
+            <span class="pill">All</span>
+            <span class="pill on"><span class="mono hw">HW</span>howsitgoing</span>
+            <span class="pill"><span class="mono pv">PV</span>playvesting</span>
+            <span class="pill"><span class="mono wu">WU</span>wush<span class="dot"></span></span>
+            <span class="pill"><span class="mono le">LE</span>lexie</span>
+          </div>
+          <div class="row">
+            <div class="top">
+              <span class="mono hw">HW</span>howsitgoing<span class="meta">now</span>
+            </div>
+            <div class="title">Settle digest on Today</div>
+          </div>
+          <div class="row">
+            <div class="top">
+              <span class="mono hw">HW</span>howsitgoing<span class="meta">1h</span>
+            </div>
+            <div class="title">iOS: Universal Links</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

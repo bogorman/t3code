@@ -1002,6 +1002,12 @@ export function resolveSidebarThreadStatus(thread: SidebarThreadStatusInput): Si
   return "ready";
 }
 
+/** A pending approval or question, or a run stopped by an error or a limit. */
+export function sidebarThreadNeedsUser(thread: SidebarThreadStatusInput): boolean {
+  const status = resolveSidebarThreadStatus(thread);
+  return status === "approval" || status === "input" || status === "failed" || status === "limited";
+}
+
 export type SidebarV2TopStatusKind =
   | "approval"
   | "done"
