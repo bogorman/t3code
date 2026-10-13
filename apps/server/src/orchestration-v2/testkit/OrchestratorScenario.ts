@@ -146,6 +146,8 @@ function commandThreadIds(command: OrchestrationV2Command): ReadonlyArray<Thread
     case "thread.keep-agent-on.set":
     case "thread.pin":
     case "thread.unpin":
+    case "thread.link":
+    case "thread.unlink":
     case "thread.pin.reorder":
     case "thread.active.reorder":
     case "thread.visit":

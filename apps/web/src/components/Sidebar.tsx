@@ -23,6 +23,7 @@ import {
   useSensor,
   useSensors,
   type DragEndEvent,
+  type DragMoveEvent,
   type DragOverEvent,
   type DragStartEvent,
   type Modifier,
@@ -76,6 +77,7 @@ import {
   EyeIcon,
   FolderIcon,
   GitBranchIcon,
+  LinkIcon,
   ListFilterIcon,
   MessageCircleQuestionIcon,
   PinIcon,
@@ -209,6 +211,7 @@ import {
   isSidebarNestedLinkClick,
   isSidebarThreadWorking,
   isTrailingDoubleClick,
+  groupLinkedThreads,
   orderItemsByPreferredIds,
   planSidebarThreadDrop,
   reduceSidebarProjectScopeMenuState,
@@ -217,6 +220,9 @@ import {
   resolveSidebarDropTarget,
   resolveSidebarDropVerb,
   sidebarThreadNeedsUser,
+  sidebarDropKeepsLink,
+  sidebarLinkPositions,
+  type SidebarLinkPosition,
   resolveSidebarThreadSection,
   resolveSidebarRowAccessibility,
   type SidebarDropVerb,
@@ -249,6 +255,8 @@ import {
   createSidebarCollisionDetection,
   createSidebarSortingStrategy,
   restrictBelowSidebarLabel,
+  sidebarLinkTargetOf,
+  withSidebarLinkTarget,
 } from "./Sidebar.drag";
 import { SidebarDragLifecycle, SidebarPointerSensor } from "./Sidebar.pointer";
 import { createSidebarListMotion } from "./Sidebar.motion";
@@ -1159,6 +1167,10 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: {
   // sortable bag applied to the row root so the whole row drags (the
   // pointer sensor's distance constraint keeps plain clicks working).
   sortable?: SortableThreadRowBag | undefined;
+  // Place in a run of linked rows, which share one tinted card.
+  linkPosition: SidebarLinkPosition | null;
+  // The lifted thread links to this row if released now.
+  isLinkTarget: boolean;
   dropVerb: SidebarDropVerb | null;
   // While dragging, the pin marker stays only for a pinned thread still over
   // the pinned section. Any other position shows the verb badge instead, and
@@ -1996,9 +2008,34 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: {
       className={cn(
         // Matches the h-[4.875rem] content box; the py-0.5 padding is added on top.
         "list-none py-0.5 [content-visibility:auto] [contain-intrinsic-size:auto_78px]",
+        (props.linkPosition !== null || props.isLinkTarget) && "relative",
+        // Linked rows skip paint containment so the link mark can sit on the
+        // seam above the row.
+        props.linkPosition !== null && "bg-sidebar-foreground/4 [content-visibility:visible]",
+        props.linkPosition === "first" && "rounded-t-xl",
+        props.linkPosition === "last" && "rounded-b-xl",
         sortable?.isDragging && "relative z-20",
       )}
     >
+      {props.linkPosition === "middle" || props.linkPosition === "last" ? (
+        <span
+          aria-hidden
+          className="pointer-events-none absolute top-0 left-(--sidebar-row-content-inset) z-20 flex size-4 -translate-y-1/2 items-center justify-center rounded-full bg-sidebar text-secondary-label ring-1 ring-sidebar-foreground/10"
+        >
+          <LinkIcon className="size-2.5" />
+        </span>
+      ) : null}
+      {props.isLinkTarget ? (
+        <span
+          aria-hidden
+          className="pointer-events-none absolute inset-0.5 z-20 rounded-lg bg-primary/5 ring-2 ring-primary ring-inset"
+        >
+          <span className="absolute top-1.5 right-2 inline-flex items-center gap-1 rounded-full bg-primary px-2 py-0.5 font-medium text-2xs text-primary-foreground">
+            <LinkIcon className="size-3" />
+            Link
+          </span>
+        </span>
+      ) : null}
       <Tooltip disabled={snoozeMenuOpen || sortable?.isDragging}>
         <TooltipTrigger
           render={
@@ -2475,6 +2512,8 @@ export default function Sidebar() {
     pinThread,
     unpinThread,
     confirmAndUnpinThread,
+    linkThreads,
+    unlinkThread,
     setThreadAutoSettle,
     setThreadKeepAgentOn,
     reorderPinnedThread,
@@ -3016,7 +3055,8 @@ export default function Sidebar() {
       ? sortInboxThreadsByReturn(active, inboxReturns.returnedAt)
       : sortThreadsForSidebar(active);
     return {
-      pinnedThreads:
+      // Linked threads gather at their first member's slot in each section.
+      pinnedThreads: groupLinkedThreads(
         optimisticDrop?.section !== "pinned" || optimisticDrop.order === null
           ? sortedPinned
           : orderItemsByPreferredIds({
@@ -3024,9 +3064,10 @@ export default function Sidebar() {
               preferredIds: optimisticDrop.order,
               getId: (thread) => scopedThreadKey(scopeThreadRef(thread.environmentId, thread.id)),
             }),
+      ),
       draggableThreadKeys: draggable,
       activeReorderableThreadKeys: activeReorderable,
-      activeThreads:
+      activeThreads: groupLinkedThreads(
         optimisticDrop?.section !== "active" || optimisticDrop.order === null
           ? sortedActive
           : orderItemsByPreferredIds({
@@ -3034,6 +3075,7 @@ export default function Sidebar() {
               preferredIds: optimisticDrop.order,
               getId: (thread) => scopedThreadKey(scopeThreadRef(thread.environmentId, thread.id)),
             }),
+      ),
       // Newest send first; finishing and waking again do not move a row.
       workingThreads: sortWorkingThreadsBySend(working),
       // Soonest wake first: "what comes back next" is the shelf's question.
@@ -3054,6 +3096,14 @@ export default function Sidebar() {
     threads,
     workingShelfEnabled,
   ]);
+
+  const linkPositionByKey = useMemo(
+    () =>
+      sidebarLinkPositions([pinnedThreads, activeThreads], (thread) =>
+        scopedThreadKey(scopeThreadRef(thread.environmentId, thread.id)),
+      ),
+    [activeThreads, pinnedThreads],
+  );
 
   const threadSearchInputRef = useRef<HTMLInputElement>(null);
   const [threadSearchQuery, setThreadSearchQuery] = useState("");
@@ -3629,6 +3679,8 @@ export default function Sidebar() {
     readonly activationY: number | null;
     readonly targetSection: SidebarSection | null;
     readonly contextDrag: boolean;
+    /** Row the lifted thread links to on release, while over its middle. */
+    readonly linkTargetKey: string | null;
   } | null>(null);
   const isContextDrag = dragState?.contextDrag === true;
   const dragTargetSection = isContextDrag ? null : (dragState?.targetSection ?? null);
@@ -3910,6 +3962,28 @@ export default function Sidebar() {
     },
     [confirmAndUnpinThread],
   );
+  const reportLinkFailure = useCallback(
+    (title: string, result: AtomCommandResult<unknown, unknown>) => {
+      if (result._tag !== "Failure" || isAtomCommandInterrupted(result)) return;
+      const error = squashAtomCommandFailure(result);
+      toastManager.add(
+        stackedThreadToast({
+          type: "error",
+          title,
+          description: error instanceof Error ? error.message : "An error occurred.",
+        }),
+      );
+    },
+    [],
+  );
+  const attemptUnlink = useCallback(
+    (threadRef: ScopedThreadRef) => {
+      void unlinkThread(threadRef).then((result) =>
+        reportLinkFailure("Failed to unlink thread", result),
+      );
+    },
+    [reportLinkFailure, unlinkThread],
+  );
 
   const handleThreadDragStart = useCallback(
     (event: DragStartEvent) => {
@@ -3934,6 +4008,7 @@ export default function Sidebar() {
         activeSection,
         targetSection: activeSection,
         contextDrag: false,
+        linkTargetKey: null,
         occurredAt: new Date().toISOString(),
         activationY:
           event.activatorEvent instanceof PointerEvent ? event.activatorEvent.clientY : null,
@@ -4040,6 +4115,14 @@ export default function Sidebar() {
     },
     [sidebarListItems],
   );
+  const handleThreadDragMove = useCallback((event: DragMoveEvent) => {
+    const linkTargetKey = sidebarLinkTargetOf(event.collisions);
+    setDragState((current) =>
+      current === null || current.linkTargetKey === linkTargetKey
+        ? current
+        : { ...current, linkTargetKey },
+    );
+  }, []);
   const sortableIds = useMemo(() => sidebarListItems.map(sidebarListItemId), [sidebarListItems]);
   const draggedSettledOrder = useMemo(() => {
     const thread = dragState === null ? undefined : threadByKey.get(dragState.activeKey);
@@ -4117,7 +4200,7 @@ export default function Sidebar() {
       return createSidebarCollisionDetection(() => true);
     const source = threadByKey.get(draggedThreadKey);
     if (source === undefined) return createSidebarCollisionDetection(() => false);
-    return createSidebarCollisionDetection(
+    const detect = createSidebarCollisionDetection(
       (id) => {
         const target = resolveSidebarDropTarget(sidebarListItems, draggedThreadKey, id);
         if (target === null) return false;
@@ -4146,8 +4229,24 @@ export default function Sidebar() {
         activationY: dragActivationY ?? null,
       },
     );
+    // Links form between threads on one server, within the pinned or active
+    // section, so a group always renders as one block.
+    const linksFromSection = draggedFromSection === "pinned" || draggedFromSection === "active";
+    const supportsLinking =
+      serverConfigs.get(source.environmentId)?.environment.capabilities.threadLinking === true;
+    if (!linksFromSection || !supportsLinking) return detect;
+    return withSidebarLinkTarget(detect, (id) => {
+      const target = threadByKey.get(id);
+      return (
+        target !== undefined &&
+        target.environmentId === source.environmentId &&
+        sectionByThreadKey.get(id) === draggedFromSection &&
+        (source.linkGroupId == null || target.linkGroupId !== source.linkGroupId)
+      );
+    });
   }, [
     activeKeysById,
+    sectionByThreadKey,
     pinnedKeysById,
     serverConfigs,
     activeKeys,
@@ -4164,6 +4263,17 @@ export default function Sidebar() {
   const handleThreadDragEnd = useCallback(
     (event: DragEndEvent) => {
       const activeKey = String(event.active.id);
+      const linkTargetKey = sidebarLinkTargetOf(event.collisions);
+      const linkSource = threadByKey.get(activeKey);
+      const linkTarget = linkTargetKey === null ? undefined : threadByKey.get(linkTargetKey);
+      if (linkSource !== undefined && linkTarget !== undefined) {
+        if (!checkThreadOperations([linkSource, linkTarget])) return;
+        void linkThreads(
+          scopeThreadRef(linkSource.environmentId, linkSource.id),
+          scopeThreadRef(linkTarget.environmentId, linkTarget.id),
+        ).then((result) => reportLinkFailure("Failed to link threads", result));
+        return;
+      }
       const activeSection = sectionByThreadKey.get(activeKey);
       const target =
         event.over === null
@@ -4189,6 +4299,23 @@ export default function Sidebar() {
         activeReorderableKeys: activeReorderableThreadKeys,
         activeTimeOrdered: workingShelfEnabled,
       });
+      // Dragging a linked row to a gap in its own section away from its
+      // group takes it out of the group.
+      const droppedOrder =
+        target.section === "pinned"
+          ? target.pinnedOrder
+          : target.section === "active"
+            ? target.activeOrder
+            : null;
+      if (
+        activeThread.linkGroupId != null &&
+        target.section === activeSection &&
+        droppedOrder !== null &&
+        !sidebarDropKeepsLink(droppedOrder, activeKey, threadByKey) &&
+        checkThreadOperations([activeThread])
+      ) {
+        attemptUnlink(threadRef);
+      }
       if (plan.kind === "none") return;
       if (plan.kind === "settle" && settlingThreadKeysRef.current.has(activeKey)) return;
       const assignments =
@@ -4315,14 +4442,17 @@ export default function Sidebar() {
     },
     [
       activeKeysById,
+      attemptUnlink,
       pinnedKeysById,
       serverConfigs,
       activeKeys,
       activeReorderableThreadKeys,
       draggableThreadKeys,
+      linkThreads,
       pinThread,
       pinnedKeys,
       planForwardNavigation,
+      reportLinkFailure,
       reorderPinnedThread,
       reorderActiveThread,
       sectionByThreadKey,
@@ -4794,6 +4924,7 @@ export default function Sidebar() {
                   }
                 : null,
               isPinned,
+              isLinked: thread.linkGroupId != null,
               isSettled,
               autoSettleEnabled: thread.autoSettleDisabledAt == null,
               keepAgentOn: thread.keepAgentOnAt != null,
@@ -4898,6 +5029,9 @@ export default function Sidebar() {
             }
             return;
           }
+          case "unlink":
+            attemptUnlink(threadRef);
+            return;
           case "auto-settle:enabled":
           case "auto-settle:disabled": {
             const result = await setThreadAutoSettle(
@@ -5026,6 +5160,7 @@ export default function Sidebar() {
       attemptPin,
       attemptSettle,
       attemptSnooze,
+      attemptUnlink,
       attemptUnpin,
       attemptUnsettle,
       attemptUnsnooze,
@@ -5458,6 +5593,7 @@ export default function Sidebar() {
                 ]}
                 onDragStart={handleThreadDragStart}
                 onDragOver={handleThreadDragOver}
+                onDragMove={handleThreadDragMove}
                 onDragEnd={handleThreadDragEnd}
               >
                 <SidebarDragLifecycle onUnmount={cancelThreadDrag} />
@@ -5524,6 +5660,8 @@ export default function Sidebar() {
                             }
                             isPinned={thread.pinnedAt != null}
                             sortable={sortable}
+                            linkPosition={linkPositionByKey.get(threadKey) ?? null}
+                            isLinkTarget={dragState?.linkTargetKey === threadKey}
                             dropVerb={
                               dragState?.activeKey === threadKey
                                 ? resolveSidebarDropVerb(dragState.activeSection, dragTargetSection)

@@ -95,6 +95,7 @@ export function useThreadActionMenu(input: {
     unsnoozeThread,
     pinThread,
     confirmAndUnpinThread,
+    unlinkThread,
     setThreadAutoSettle,
     setThreadKeepAgentOn,
     archiveThread,
@@ -153,6 +154,7 @@ export function useThreadActionMenu(input: {
           branch: thread.branch ?? null,
           projectFilter: null,
           isPinned: thread.pinnedAt != null,
+          isLinked: thread.linkGroupId != null,
           isSettled: supports.settlement && thread.settledOverride === "settled",
           autoSettleEnabled: thread.autoSettleDisabledAt == null,
           keepAgentOn: thread.keepAgentOnAt != null,
@@ -246,6 +248,9 @@ export function useThreadActionMenu(input: {
             await reportFailure("Failed to unpin thread", () => confirmAndUnpinThread(threadRef));
             return;
           }
+          case "unlink":
+            await reportFailure("Failed to unlink thread", () => unlinkThread(threadRef));
+            return;
           case "auto-settle:enabled":
           case "auto-settle:disabled":
             await reportFailure("Failed to update auto-settle", () =>
@@ -353,6 +358,7 @@ export function useThreadActionMenu(input: {
       confirmThreadArchive,
       confirmThreadDelete,
       confirmAndUnpinThread,
+      unlinkThread,
       copyBranchToClipboard,
       copyPathToClipboard,
       copyThreadIdToClipboard,

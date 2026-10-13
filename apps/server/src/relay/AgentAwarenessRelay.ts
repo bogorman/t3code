@@ -115,6 +115,8 @@ export function shouldPublishAgentAwarenessEvent(
     case "thread.keep-agent-on-set":
     case "thread.pinned":
     case "thread.unpinned":
+    case "thread.linked":
+    case "thread.unlinked":
     case "thread.pin-reordered":
     case "thread.active-reordered":
     case "thread.visited":

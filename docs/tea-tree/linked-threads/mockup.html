@@ -1,0 +1,668 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Linked threads</title>
+    <style>
+      :root {
+        --bg: #0a0a0a;
+        --row-hover: #1c1c1e;
+        --fg: #e8e8e8;
+        --muted: #8a8a8e;
+        --faint: #4a4a4e;
+        --line: #2a2a2d;
+        --accent: #4ea1ff;
+        --claude: #d97757;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: #151517;
+        color: var(--fg);
+        font:
+          14px/1.3 -apple-system,
+          "SF Pro Text",
+          system-ui,
+          sans-serif;
+        padding: 28px;
+      }
+      h1 {
+        font-size: 18px;
+        font-weight: 600;
+        margin: 0 0 4px;
+      }
+      p.lead {
+        color: var(--muted);
+        margin: 0 0 24px;
+        max-width: 1100px;
+      }
+      .frames {
+        display: flex;
+        gap: 28px;
+        align-items: flex-start;
+        flex-wrap: wrap;
+      }
+      .frame {
+        width: 360px;
+      }
+      .frame h2 {
+        font-size: 13px;
+        font-weight: 600;
+        margin: 0 0 4px;
+      }
+      .frame .cap {
+        color: var(--muted);
+        font-size: 12px;
+        margin: 0 0 10px;
+        min-height: 48px;
+      }
+      .sidebar {
+        background: var(--bg);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 8px;
+        position: relative;
+        overflow: hidden;
+      }
+      .row {
+        position: relative;
+        border-radius: 10px;
+        padding: 9px 12px 9px;
+      }
+      .row.sel {
+        background: var(--row-hover);
+      }
+      .top {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        font-size: 13px;
+        color: var(--muted);
+      }
+      .mono {
+        width: 18px;
+        height: 18px;
+        border-radius: 5px;
+        font-size: 9px;
+        font-weight: 700;
+        display: grid;
+        place-items: center;
+        letter-spacing: -0.2px;
+      }
+      .hw {
+        color: #34d399;
+        background: rgba(52, 211, 153, 0.15);
+      }
+      .pv {
+        color: #a78bfa;
+        background: rgba(167, 139, 250, 0.16);
+      }
+      .wu {
+        color: #38bdf8;
+        background: rgba(56, 189, 248, 0.14);
+      }
+      .sf {
+        color: #e0b100;
+        background: rgba(224, 177, 0, 0.14);
+      }
+      .le {
+        color: #a78bfa;
+        background: rgba(167, 139, 250, 0.16);
+      }
+      .fy {
+        color: #38bdf8;
+        background: rgba(56, 189, 248, 0.14);
+      }
+      .dn {
+        color: #f87171;
+        background: rgba(248, 113, 113, 0.14);
+      }
+      .t3 {
+        color: #fff;
+        background: #3b82f6;
+      }
+      .an {
+        color: #fb7185;
+        background: rgba(251, 113, 133, 0.14);
+      }
+      .meta {
+        margin-left: auto;
+        font-size: 12px;
+        color: var(--muted);
+        display: flex;
+        gap: 5px;
+        align-items: center;
+      }
+      .meta.working {
+        color: #38bdf8;
+      }
+      .title {
+        margin-top: 5px;
+        font-size: 14px;
+        color: #cfcfd2;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        padding-right: 16px;
+      }
+      .sub {
+        font-size: 12px;
+        color: var(--faint);
+        margin-top: 3px;
+      }
+      .claude {
+        position: absolute;
+        right: 12px;
+        bottom: 9px;
+        color: var(--claude);
+        font-size: 13px;
+      }
+      svg.i {
+        width: 13px;
+        height: 13px;
+        stroke: currentColor;
+        fill: none;
+        stroke-width: 2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+
+      /* Frame 1: drag over a row */
+      .row.drop-target {
+        background: rgba(78, 161, 255, 0.08);
+        box-shadow: inset 0 0 0 1.5px var(--accent);
+      }
+      .drop-chip {
+        position: absolute;
+        right: 10px;
+        top: 8px;
+        background: var(--accent);
+        color: #04121f;
+        font-size: 11px;
+        font-weight: 600;
+        border-radius: 999px;
+        padding: 2px 8px;
+        display: flex;
+        gap: 4px;
+        align-items: center;
+      }
+      .ghost {
+        position: absolute;
+        left: 70px;
+        top: 128px;
+        width: 260px;
+        background: #222225;
+        border-radius: 10px;
+        padding: 8px 12px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+        transform: rotate(-2deg);
+        opacity: 0.95;
+        z-index: 2;
+      }
+      .cursor {
+        position: absolute;
+        left: 196px;
+        top: 152px;
+        z-index: 3;
+        width: 16px;
+        height: 16px;
+      }
+      .gap-hint {
+        height: 2px;
+        background: transparent;
+        margin: 0 12px;
+      }
+      .row.lifted {
+        opacity: 0.3;
+      }
+
+      /* Frame 2: group option A, shared surface + rail */
+      .group-a {
+        position: relative;
+        border-radius: 12px;
+        background: #141416;
+        box-shadow: inset 0 0 0 1px var(--line);
+        margin: 2px 0;
+      }
+      .group-a .row + .row {
+        border-top: 1px solid #1f1f22;
+        border-radius: 0 0 10px 10px;
+      }
+      .group-a .row:first-child {
+        border-radius: 10px 10px 0 0;
+      }
+      .rail {
+        position: absolute;
+        left: 20px;
+        top: 30px;
+        bottom: 30px;
+        width: 2px;
+        background: #3a3a3f;
+        border-radius: 1px;
+      }
+      .joint {
+        position: absolute;
+        left: 13px;
+        top: -9px;
+        width: 18px;
+        height: 18px;
+        border-radius: 999px;
+        background: #141416;
+        box-shadow: inset 0 0 0 1px #2f2f33;
+        color: var(--muted);
+        display: grid;
+        place-items: center;
+        z-index: 1;
+      }
+      .group-b .joint {
+        display: none;
+      }
+      .rail-link {
+        position: absolute;
+        left: 13px;
+        top: 50%;
+        transform: translateY(-50%);
+        background: #141416;
+        color: var(--muted);
+        width: 16px;
+        height: 16px;
+        display: grid;
+        place-items: center;
+      }
+
+      /* Frame 3: group option B, labelled header */
+      .group-b {
+        margin: 4px 0;
+      }
+      .group-b-head {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 11px;
+        color: var(--muted);
+        padding: 6px 12px 2px;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+      }
+      .group-b-head .count {
+        margin-left: auto;
+        text-transform: none;
+        letter-spacing: 0;
+      }
+      .group-b-body {
+        border-left: 2px solid #3a3a3f;
+        margin-left: 14px;
+      }
+      .group-b-body .row {
+        padding-left: 10px;
+      }
+
+      /* Frame 4: menu */
+      .menu {
+        position: absolute;
+        left: 150px;
+        top: 120px;
+        width: 196px;
+        background: #1f1f22;
+        border: 1px solid #2f2f33;
+        border-radius: 10px;
+        padding: 4px;
+        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6);
+        z-index: 3;
+        font-size: 13px;
+      }
+      .menu div {
+        padding: 6px 8px;
+        border-radius: 6px;
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        color: #d6d6d9;
+      }
+      .menu div.hl {
+        background: #2c2c30;
+      }
+      .menu hr {
+        border: 0;
+        border-top: 1px solid #2f2f33;
+        margin: 4px 0;
+      }
+      .header-chip {
+        margin: 10px 4px 2px;
+        padding: 10px 12px;
+        border-radius: 10px;
+        background: #111113;
+        border: 1px solid var(--line);
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .header-chip .bar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: #cfcfd2;
+        font-size: 13px;
+      }
+      .chip {
+        display: inline-flex;
+        gap: 5px;
+        align-items: center;
+        border: 1px solid #2f2f33;
+        border-radius: 999px;
+        padding: 2px 8px;
+        font-size: 12px;
+        color: var(--muted);
+        margin-left: auto;
+      }
+      .notes {
+        margin-top: 28px;
+        max-width: 1100px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .notes b {
+        color: var(--fg);
+      }
+    </style>
+  </head>
+  <body>
+    <svg width="0" height="0" style="position: absolute">
+      <symbol id="link" viewBox="0 0 24 24">
+        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+        <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+      </symbol>
+      <symbol id="unlink" viewBox="0 0 24 24">
+        <path d="m18.84 12.25 1.72-1.71a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+        <path d="m5.17 11.75-1.71 1.71a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+        <line x1="8" y1="2" x2="8" y2="5" />
+        <line x1="2" y1="8" x2="5" y2="8" />
+        <line x1="16" y1="19" x2="16" y2="22" />
+        <line x1="19" y1="16" x2="22" y2="16" />
+      </symbol>
+      <symbol id="spin" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="9" stroke-dasharray="4 3" />
+      </symbol>
+      <symbol id="pin" viewBox="0 0 24 24">
+        <path d="M12 17v5" />
+        <path
+          d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"
+        />
+      </symbol>
+      <symbol id="caret" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6" /></symbol>
+    </svg>
+
+    <h1>Linked threads</h1>
+    <p class="lead">
+      Drag one thread onto the middle of another to link them. Linked threads then sit together in
+      the list as one block, at the position of the most recently active one. Dropping in the gap
+      between rows still reorders, as it does now.
+    </p>
+
+    <div class="frames">
+      <!-- Frame 1 -->
+      <div class="frame">
+        <h2>1. Drag onto a thread</h2>
+        <p class="cap">
+          The row under the pointer gets an outline and a "Link" chip. Gaps between rows keep the
+          current reorder line.
+        </p>
+        <div class="sidebar">
+          <div class="row">
+            <div class="top">
+              <span class="mono hw">HW</span>howsitgoing<span class="meta working"
+                ><svg class="i"><use href="#spin" /></svg>Working 3m</span
+              >
+            </div>
+            <div class="title">Settle digest on Today</div>
+            <span class="claude">✳</span>
+          </div>
+          <div class="row drop-target">
+            <div class="top"><span class="mono le">LE</span>lexie</div>
+            <div class="title">Contract review agent</div>
+            <span class="drop-chip"
+              ><svg class="i"><use href="#link" /></svg>Link</span
+            ><span class="claude">✳</span>
+          </div>
+          <div class="row">
+            <div class="top">
+              <span class="mono pv">PV</span>playvesting<span class="meta">2h</span>
+            </div>
+            <div class="title">Portfolio rebalance job</div>
+            <div class="sub">rebalance</div>
+            <span class="claude">✳</span>
+          </div>
+          <div class="row">
+            <div class="top"><span class="mono wu">WU</span>wush<span class="meta">2h</span></div>
+            <div class="title">Preview deploys per branch</div>
+            <span class="claude">✳</span>
+          </div>
+          <div class="row lifted">
+            <div class="top"><span class="mono wu">WU</span>wush<span class="meta">2h</span></div>
+            <div class="title">Share links for contracts</div>
+            <div class="sub">contract-links</div>
+            <span class="claude">✳</span>
+          </div>
+          <div class="row">
+            <div class="top">
+              <span class="mono pv">PV</span>playvesting<span class="meta">2h</span>
+            </div>
+            <div class="title">Leaderboard caching</div>
+            <span class="claude">✳</span>
+          </div>
+          <div class="ghost">
+            <div class="top"><span class="mono wu">WU</span>wush</div>
+            <div class="title" style="margin-top: 3px">Share links for contracts</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Frame 2 -->
+      <div class="frame">
+        <h2>2a. Linked: shared card (recommended)</h2>
+        <p class="cap">
+          The two rows share one surface with a small link mark on the line between them. No header
+          and no name to manage. The block moves up when either thread is active.
+        </p>
+        <div class="sidebar">
+          <div class="row">
+            <div class="top">
+              <span class="mono hw">HW</span>howsitgoing<span class="meta working"
+                ><svg class="i"><use href="#spin" /></svg>Working 3m</span
+              >
+            </div>
+            <div class="title">Settle digest on Today</div>
+            <span class="claude">✳</span>
+          </div>
+          <div class="group-a">
+            <div class="row">
+              <div class="top">
+                <span class="mono le">LE</span>lexie<span class="meta">now</span>
+              </div>
+              <div class="title">Contract review agent</div>
+              <span class="claude">✳</span>
+            </div>
+            <div class="row">
+              <span class="joint"
+                ><svg class="i" style="width: 10px; height: 10px"><use href="#link" /></svg
+              ></span>
+              <div class="top"><span class="mono wu">WU</span>wush<span class="meta">2h</span></div>
+              <div class="title">Share links for contracts</div>
+              <div class="sub">contract-links</div>
+              <span class="claude">✳</span>
+            </div>
+          </div>
+          <div class="row">
+            <div class="top">
+              <span class="mono pv">PV</span>playvesting<span class="meta">2h</span>
+            </div>
+            <div class="title">Portfolio rebalance job</div>
+            <div class="sub">rebalance</div>
+            <span class="claude">✳</span>
+          </div>
+          <div class="row">
+            <div class="top"><span class="mono wu">WU</span>wush<span class="meta">2h</span></div>
+            <div class="title">Preview deploys per branch</div>
+            <span class="claude">✳</span>
+          </div>
+          <div class="row">
+            <div class="top">
+              <span class="mono pv">PV</span>playvesting<span class="meta">2h</span>
+            </div>
+            <div class="title">Leaderboard caching</div>
+            <span class="claude">✳</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Frame 3 -->
+      <div class="frame">
+        <h2>2b. Linked: labelled group (alternative)</h2>
+        <p class="cap">
+          A small header named after the first thread, with a count and a collapse caret. It reads
+          better with 3+ threads, but adds a name and a collapsed state to keep.
+        </p>
+        <div class="sidebar">
+          <div class="row">
+            <div class="top">
+              <span class="mono hw">HW</span>howsitgoing<span class="meta working"
+                ><svg class="i"><use href="#spin" /></svg>Working 3m</span
+              >
+            </div>
+            <div class="title">Settle digest on Today</div>
+            <span class="claude">✳</span>
+          </div>
+          <div class="group-b">
+            <div class="group-b-head">
+              <svg class="i" style="width: 12px; height: 12px"><use href="#link" /></svg>Contract
+              review agent<span class="count"
+                >2
+                <svg class="i" style="width: 12px; height: 12px; vertical-align: -2px">
+                  <use href="#caret" /></svg
+              ></span>
+            </div>
+            <div class="group-b-body">
+              <div class="row">
+                <div class="top">
+                  <span class="mono le">LE</span>lexie<span class="meta">now</span>
+                </div>
+                <div class="title">Contract review agent</div>
+                <span class="claude">✳</span>
+              </div>
+              <div class="row">
+                <span class="joint"
+                  ><svg class="i" style="width: 10px; height: 10px"><use href="#link" /></svg
+                ></span>
+                <div class="top">
+                  <span class="mono wu">WU</span>wush<span class="meta">2h</span>
+                </div>
+                <div class="title">Share links for contracts</div>
+                <div class="sub">contract-links</div>
+                <span class="claude">✳</span>
+              </div>
+            </div>
+          </div>
+          <div class="row">
+            <div class="top">
+              <span class="mono pv">PV</span>playvesting<span class="meta">2h</span>
+            </div>
+            <div class="title">Portfolio rebalance job</div>
+            <div class="sub">rebalance</div>
+            <span class="claude">✳</span>
+          </div>
+          <div class="row">
+            <div class="top"><span class="mono wu">WU</span>wush<span class="meta">2h</span></div>
+            <div class="title">Preview deploys per branch</div>
+            <span class="claude">✳</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Frame 4 -->
+      <div class="frame">
+        <h2>3. The way out, and seeing it</h2>
+        <p class="cap">
+          Right-click a linked row → "Unlink". Dragging a linked row out to a gap also unlinks it.
+          The chat header shows the linked threads so you can jump between them.
+        </p>
+        <div class="sidebar" style="min-height: 420px">
+          <div class="group-a">
+            <div class="row">
+              <div class="top">
+                <span class="mono le">LE</span>lexie<span class="meta">now</span>
+              </div>
+              <div class="title">Contract review agent</div>
+              <span class="claude">✳</span>
+            </div>
+            <div class="row sel">
+              <span class="joint"
+                ><svg class="i" style="width: 10px; height: 10px"><use href="#link" /></svg
+              ></span>
+              <div class="top"><span class="mono wu">WU</span>wush<span class="meta">2h</span></div>
+              <div class="title">Share links for contracts</div>
+              <div class="sub">contract-links</div>
+              <span class="claude">✳</span>
+            </div>
+          </div>
+          <div class="row">
+            <div class="top">
+              <span class="mono pv">PV</span>playvesting<span class="meta">2h</span>
+            </div>
+            <div class="title">Portfolio rebalance job</div>
+            <div class="sub">rebalance</div>
+            <span class="claude">✳</span>
+          </div>
+          <div class="menu">
+            <div>
+              <svg class="i"><use href="#pin" /></svg>Pin
+            </div>
+            <div>Rename</div>
+            <div>Settle</div>
+            <hr />
+            <div class="hl">
+              <svg class="i"><use href="#unlink" /></svg>Unlink
+            </div>
+            <hr />
+            <div style="color: #f87171">Delete</div>
+          </div>
+          <div style="height: 150px"></div>
+          <div class="header-chip">
+            <div
+              style="
+                font-size: 11px;
+                margin-bottom: 6px;
+                text-transform: uppercase;
+                letter-spacing: 0.4px;
+              "
+            >
+              Chat header
+            </div>
+            <div class="bar">
+              Share links for contracts
+              <span class="chip"
+                ><svg class="i" style="width: 12px; height: 12px"><use href="#link" /></svg
+                ><span class="mono le" style="width: 14px; height: 14px; font-size: 7px">LE</span
+                >+1</span
+              >
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="notes">
+      <p>
+        <b>Smallest model.</b> Each thread gets one optional field, <code>linkGroupId</code>, stored
+        and sent like <code>pinnedAt</code> is now. Dropping A on B gives A the group of B, or makes
+        a new group of the two. Unlinking clears A's field, and a group left with one thread shows
+        as a normal row. A group has no name and no order to keep. Rows in a group sort as they do
+        now, and the block takes the place of its most recent row.
+      </p>
+      <p>
+        <b>Where it shows.</b> Option 2a needs no new state beyond that field. In 2b, the collapse
+        state could be a client-only setting.
+      </p>
+    </div>
+  </body>
+</html>

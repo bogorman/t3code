@@ -161,6 +161,8 @@ export const ExecutionEnvironmentCapabilities = Schema.Struct({
   /** Server understands thread.pin.reorder (and orderKey on thread.pin).
       Same version-skew contract as threadSettlement. */
   threadPinReorder: Schema.optionalKey(Schema.Boolean),
+  /** Server understands thread.link / thread.unlink commands. */
+  threadLinking: Schema.optionalKey(Schema.Boolean),
   /** Server persists manual Active order through thread.active.reorder. */
   threadActiveReorder: Schema.optionalKey(Schema.Boolean),
   /** Server understands thread.auto-settle.set (per-thread auto-settle off).

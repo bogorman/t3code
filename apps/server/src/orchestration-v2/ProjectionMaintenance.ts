@@ -219,6 +219,8 @@ export const layer: Layer.Layer<
       "thread.badges-updated",
       "thread.keep-agent-on-set",
       "thread.unpinned",
+      "thread.linked",
+      "thread.unlinked",
       "thread.pin-reordered",
       "thread.active-reordered",
       "thread.metadata-updated",

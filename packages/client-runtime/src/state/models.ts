@@ -138,6 +138,8 @@ export interface EnvironmentThreadShell {
   readonly pinOrderKey: string | null;
   /** Slot in the user-arranged active order; null for keyless active threads. */
   readonly activeOrderKey: string | null;
+  /** Shared by threads linked together in the sidebar; null when unlinked. */
+  readonly linkGroupId?: string | null;
   readonly pullRequests: ReadonlyArray<import("@t3tools/contracts").ThreadPullRequestLink>;
   /** Badges outside tools put on the thread; empty when none. */
   readonly badges: ReadonlyArray<import("@t3tools/contracts").ThreadBadge>;
@@ -287,6 +289,7 @@ export function presentThreadShell(
     keepAgentOnAt: nullableIso(thread.keepAgentOnAt ?? null),
     pinOrderKey: thread.pinOrderKey ?? null,
     activeOrderKey: thread.activeOrderKey ?? null,
+    linkGroupId: thread.linkGroupId ?? null,
     ...(thread.lastVisitedAt === undefined
       ? {}
       : { lastVisitedAt: nullableIso(thread.lastVisitedAt) }),
