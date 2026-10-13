@@ -23,6 +23,11 @@ import {
   sortPinnedThreadsByOrderKey,
   sortSettledThreads,
 } from "@t3tools/client-runtime/state/thread-sort";
+import {
+  groupLinkedThreads,
+  threadLinkPositions,
+  type ThreadLinkPosition,
+} from "@t3tools/client-runtime/state/thread-links";
 import type { EnvironmentId, ProjectId } from "@t3tools/contracts";
 
 import type { ThreadListProvider } from "../../state/thread-list-environments";
@@ -276,6 +281,8 @@ export interface ThreadListV2Item {
   /** Pinned-block row: renders the pin glyph and offers Unpin. */
   readonly pinned: boolean;
   readonly isLast: boolean;
+  /** Place in a run of linked threads within this row's section, or null. */
+  readonly linkPosition: ThreadLinkPosition | null;
 }
 
 export interface ThreadListV2Layout {
@@ -413,6 +420,7 @@ export function threadListV2ListItemsAreEqual(
         previous.item.variant === item.item.variant &&
         previous.item.snoozed === item.item.snoozed &&
         previous.item.pinned === item.item.pinned &&
+        previous.item.linkPosition === item.item.linkPosition &&
         previous.snoozeWakeLabelText === item.snoozeWakeLabelText &&
         previous.timeLabel === item.timeLabel &&
         previous.snoozePresetMinute === item.snoozePresetMinute &&
@@ -799,57 +807,76 @@ export function buildThreadListV2Items(input: {
           (thread) => `${thread.environmentId}:${thread.id}` === selectedThreadKey,
         );
 
+  // Linked threads sit together inside each section (TeaTree #9). Moves and
+  // the arrange sheet keep working on the saved, ungrouped order.
+  const sections = [
+    groupLinkedThreads(
+      applyPendingThreadOrder(sortPinnedThreadsByOrderKey(pinned), "pinned", pending),
+    ),
+    groupLinkedThreads(orderedActive),
+    groupLinkedThreads(visibleWorking),
+    groupLinkedThreads(visibleSnoozed),
+    groupLinkedThreads(visibleSettled),
+  ] as const;
+  const linkPositions = threadLinkPositions(
+    sections,
+    (thread) => `${thread.environmentId}:${thread.id}`,
+  );
+  const linkPositionOf = (thread: EnvironmentThreadShell) =>
+    linkPositions.get(`${thread.environmentId}:${thread.id}`) ?? null;
+
   const items: ThreadListV2Item[] = [];
-  for (const thread of applyPendingThreadOrder(
-    sortPinnedThreadsByOrderKey(pinned),
-    "pinned",
-    pending,
-  )) {
+  for (const thread of sections[0]) {
     items.push({
       thread,
       variant: "card",
       snoozed: false,
       pinned: true,
       isLast: false,
+      linkPosition: linkPositionOf(thread),
     });
   }
-  for (const thread of orderedActive) {
+  for (const thread of sections[1]) {
     items.push({
       thread,
       variant: "card",
       snoozed: false,
       pinned: false,
       isLast: false,
+      linkPosition: linkPositionOf(thread),
     });
   }
   const workingShelfHeaderIndex = orderedWorking.length > 0 ? items.length : null;
-  for (const thread of visibleWorking) {
+  for (const thread of sections[2]) {
     items.push({
       thread,
       variant: "card",
       snoozed: false,
       pinned: false,
       isLast: false,
+      linkPosition: linkPositionOf(thread),
     });
   }
   const snoozedShelfHeaderIndex = orderedSnoozed.length > 0 ? items.length : null;
-  for (const thread of visibleSnoozed) {
+  for (const thread of sections[3]) {
     items.push({
       thread,
       variant: "slim",
       snoozed: true,
       pinned: false,
       isLast: false,
+      linkPosition: linkPositionOf(thread),
     });
   }
   const settledShelfHeaderIndex = orderedSettled.length > 0 ? items.length : null;
-  for (const thread of visibleSettled) {
+  for (const thread of sections[4]) {
     items.push({
       thread,
       variant: "slim",
       snoozed: false,
       pinned: false,
       isLast: false,
+      linkPosition: linkPositionOf(thread),
     });
   }
   const last = items.at(-1);

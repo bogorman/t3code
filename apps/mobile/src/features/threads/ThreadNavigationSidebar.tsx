@@ -326,6 +326,7 @@ function ThreadNavigationSidebarPane(
     pinReorderEnvironmentIds,
     activeReorderEnvironmentIds,
     titleRegenerationEnvironmentIds,
+    linkingEnvironmentIds,
   } = listEnvironments;
   const resolveProviderInstance = useThreadRowProviderInstanceResolver(providersByEnvironmentId);
   const pendingOrder = usePendingThreadOrder(nowMinute, snoozeWakeTick);
@@ -740,6 +741,8 @@ function ThreadNavigationSidebarPane(
                   : !workingShelfEnabled && activeReorderEnvironmentIds.has(thread.environmentId)
               }
               canMoveUp={item.canMoveUp}
+              linkPosition={item.item.linkPosition}
+              linkingSupported={linkingEnvironmentIds.has(thread.environmentId)}
               canMoveDown={item.canMoveDown}
               onSnoozeThread={snoozeThread}
               onUnsnoozeThread={unsnoozeThread}
@@ -808,6 +811,7 @@ function ThreadNavigationSidebarPane(
       pinReorderEnvironmentIds,
       pinThread,
       pinningEnvironmentIds,
+      linkingEnvironmentIds,
       autoSettleOptOutEnvironmentIds,
       autoSettleOptOutEnvironmentIds,
       setThreadAutoSettle,

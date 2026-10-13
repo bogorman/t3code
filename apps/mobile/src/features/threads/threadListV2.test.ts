@@ -417,6 +417,27 @@ describe("getThreadListV2OrderedSection", () => {
 });
 
 describe("buildThreadListV2Items", () => {
+  it("keeps linked threads together within a section and marks their positions", () => {
+    const thread = (id: string, createdAt: string, linkGroupId: string | null = null) =>
+      makeThread({ id: ThreadId.make(id), title: id, createdAt, linkGroupId });
+    const layout = buildThreadListV2Items({
+      threads: [
+        thread("lead", "2026-06-01T12:00:00.000Z", "group"),
+        thread("between", "2026-06-01T11:00:00.000Z"),
+        thread("follower", "2026-06-01T10:00:00.000Z", "group"),
+      ],
+      environmentId: null,
+      searchQuery: "",
+      now: NOW,
+    });
+
+    expect(layout.items.map((item) => [item.thread.id, item.linkPosition] as const)).toEqual([
+      ["lead", "first"],
+      ["follower", "last"],
+      ["between", null],
+    ]);
+  });
+
   it("places a persisted settled thread in the settled shelf", () => {
     const thread = makeThread({
       id: ThreadId.make("linked-merged"),

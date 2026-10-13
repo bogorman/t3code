@@ -13,6 +13,10 @@ import type { SidebarProjectSortOrder, SidebarThreadSortOrder } from "@t3tools/c
 import type { AsyncResult } from "effect/reactivity";
 import { planPinnedReorder } from "@t3tools/client-runtime/state/thread-sort";
 import {
+  threadLinkGroupKey,
+  type LinkableThread,
+} from "@t3tools/client-runtime/state/thread-links";
+import {
   effectiveSnoozed,
   type ThreadSnoozeShell,
 } from "@t3tools/client-runtime/state/thread-settled";
@@ -1456,69 +1460,11 @@ export function sortScopedProjectsForSidebar<
   );
 }
 
-type LinkableThread = {
-  readonly id: string;
-  readonly environmentId: string;
-  readonly linkGroupId?: string | null;
-};
-
-const linkGroupKey = (thread: LinkableThread) =>
-  thread.linkGroupId ? `${thread.environmentId}:${thread.linkGroupId}` : null;
-
-/** Linked threads sit together: later members move up beneath the first
-    member's slot, keeping their own relative order. A group with one member
-    in the list is an ordinary row. */
-export function groupLinkedThreads<T extends LinkableThread>(threads: readonly T[]): readonly T[] {
-  const members = new Map<string, T[]>();
-  for (const thread of threads) {
-    const key = linkGroupKey(thread);
-    if (key === null) continue;
-    const group = members.get(key);
-    if (group) group.push(thread);
-    else members.set(key, [thread]);
-  }
-  if (![...members.values()].some((group) => group.length > 1)) return threads;
-  const placed = new Set<string>();
-  const grouped: T[] = [];
-  for (const thread of threads) {
-    const key = linkGroupKey(thread);
-    const group = key === null ? undefined : members.get(key);
-    if (key === null || group === undefined || group.length < 2) grouped.push(thread);
-    else if (!placed.has(key)) {
-      placed.add(key);
-      grouped.push(...group);
-    }
-  }
-  return grouped;
-}
-
-export type SidebarLinkPosition = "first" | "middle" | "last";
-
-/** Where each row sits in a run of adjacent linked rows, by thread key. Rows
-    outside a run of two or more are absent. */
-export function sidebarLinkPositions<T extends LinkableThread>(
-  sections: ReadonlyArray<readonly T[]>,
-  keyOf: (thread: T) => string,
-): ReadonlyMap<string, SidebarLinkPosition> {
-  const positions = new Map<string, SidebarLinkPosition>();
-  for (const threads of sections) {
-    let start = 0;
-    for (let index = 1; index <= threads.length; index += 1) {
-      const key = linkGroupKey(threads[start]!);
-      if (index < threads.length && key !== null && linkGroupKey(threads[index]!) === key) continue;
-      if (index - start > 1) {
-        for (let member = start; member < index; member += 1) {
-          positions.set(
-            keyOf(threads[member]!),
-            member === start ? "first" : member === index - 1 ? "last" : "middle",
-          );
-        }
-      }
-      start = index;
-    }
-  }
-  return positions;
-}
+export {
+  groupLinkedThreads,
+  threadLinkPositions as sidebarLinkPositions,
+  type ThreadLinkPosition as SidebarLinkPosition,
+} from "@t3tools/client-runtime/state/thread-links";
 
 /** True when a row dropped at `key` in `order` lands beside a member of its
     own link group, so the drop keeps it linked. */
@@ -1528,10 +1474,10 @@ export function sidebarDropKeepsLink(
   threadByKey: ReadonlyMap<string, LinkableThread>,
 ): boolean {
   const index = order.indexOf(key);
-  const groupKey = linkGroupKey(threadByKey.get(key) ?? { id: "", environmentId: "" });
+  const groupKey = threadLinkGroupKey(threadByKey.get(key) ?? { id: "", environmentId: "" });
   if (index === -1 || groupKey === null) return false;
   return [order[index - 1], order[index + 1]].some((neighbor) => {
     const thread = neighbor === undefined ? undefined : threadByKey.get(neighbor);
-    return thread !== undefined && linkGroupKey(thread) === groupKey;
+    return thread !== undefined && threadLinkGroupKey(thread) === groupKey;
   });
 }

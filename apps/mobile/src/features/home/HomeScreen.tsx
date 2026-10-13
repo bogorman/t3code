@@ -556,6 +556,7 @@ export function HomeScreen(props: HomeScreenProps) {
     pinReorderEnvironmentIds,
     activeReorderEnvironmentIds,
     titleRegenerationEnvironmentIds,
+    linkingEnvironmentIds,
   } = listEnvironments;
   const resolveProviderInstance = useThreadRowProviderInstanceResolver(providersByEnvironmentId);
   const pendingOrder = usePendingThreadOrder(nowMinute, snoozeWakeTick);
@@ -822,6 +823,8 @@ export function HomeScreen(props: HomeScreenProps) {
               : !workingShelfEnabled && activeReorderEnvironmentIds.has(thread.environmentId)
           }
           canMoveUp={item.canMoveUp}
+          linkPosition={item.item.linkPosition}
+          linkingSupported={linkingEnvironmentIds.has(thread.environmentId)}
           canMoveDown={item.canMoveDown}
           onSnoozeThread={handleSnoozeThread}
           onUnsnoozeThread={handleUnsnoozeThread}
@@ -855,6 +858,7 @@ export function HomeScreen(props: HomeScreenProps) {
       homeScrollGesture,
       autoSettleOptOutEnvironmentIds,
       pinningEnvironmentIds,
+      linkingEnvironmentIds,
       autoSettleOptOutEnvironmentIds,
       machineByEnvironmentId,
       pinReorderEnvironmentIds,
