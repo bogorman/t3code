@@ -1,0 +1,248 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Project pills on iPhone: mockup</title>
+    <style>
+      body {
+        margin: 0;
+        background: #151517;
+        color: #f2f2f4;
+        font:
+          15px/1.3 -apple-system,
+          "SF Pro Text",
+          system-ui,
+          sans-serif;
+        padding: 24px;
+        width: 836px;
+      }
+      h1 {
+        font-size: 18px;
+        font-weight: 600;
+        margin: 0 0 4px;
+      }
+      p.lead {
+        color: #8a8a8e;
+        margin: 0 0 20px;
+        font-size: 13px;
+      }
+      .frames {
+        display: flex;
+        gap: 24px;
+      }
+      .frame h2 {
+        font-size: 13px;
+        font-weight: 600;
+        margin: 0 0 2px;
+      }
+      .frame .cap {
+        color: #8a8a8e;
+        font-size: 12px;
+        margin: 0 0 10px;
+        min-height: 32px;
+        width: 390px;
+      }
+      .phone {
+        width: 390px;
+        height: 620px;
+        background: #000;
+        border: 1px solid #2a2a2d;
+        border-radius: 44px;
+        overflow: hidden;
+        position: relative;
+      }
+      .status {
+        height: 50px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 32px;
+        font-weight: 600;
+        font-size: 15px;
+      }
+      .title {
+        font-size: 32px;
+        font-weight: 700;
+        padding: 4px 16px 10px;
+      }
+      .row {
+        display: flex;
+        gap: 8px;
+        padding: 2px 16px 10px;
+        white-space: nowrap;
+        overflow: hidden;
+      }
+      .row .track {
+        display: flex;
+        gap: 8px;
+      }
+      .pill {
+        height: 32px;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 0 12px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.1);
+        box-shadow:
+          inset 0 0.5px 0 rgba(255, 255, 255, 0.25),
+          0 1px 3px rgba(0, 0, 0, 0.4);
+        color: #a1a1a6;
+        font-size: 14px;
+        font-weight: 500;
+        flex: none;
+      }
+      .pill.active {
+        background: #0a84ff;
+        color: #fff;
+      }
+      .pill .chev {
+        font-size: 10px;
+        opacity: 0.8;
+      }
+      .dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: #ffb900;
+      }
+      .clear {
+        width: 32px;
+        height: 32px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: #8a8a8e;
+        flex: none;
+        font-size: 17px;
+      }
+      .list {
+        padding: 4px 16px;
+      }
+      .section {
+        color: #8a8a8e;
+        font-size: 13px;
+        font-weight: 600;
+        margin: 10px 0 6px;
+      }
+      .card {
+        background: #1c1c1e;
+        border-radius: 14px;
+        padding: 12px 14px;
+        margin-bottom: 8px;
+      }
+      .card .t {
+        font-weight: 600;
+        font-size: 15px;
+      }
+      .card .m {
+        color: #8a8a8e;
+        font-size: 12px;
+        margin-top: 3px;
+      }
+      .badge {
+        display: inline-block;
+        font-size: 11px;
+        font-weight: 600;
+        padding: 1px 7px;
+        border-radius: 999px;
+        margin-left: 6px;
+        vertical-align: 1px;
+      }
+      .badge.run {
+        background: rgba(10, 132, 255, 0.18);
+        color: #64b5ff;
+      }
+      .badge.ask {
+        background: #312108;
+        color: #ffb900;
+      }
+      .note {
+        position: absolute;
+        bottom: 18px;
+        left: 16px;
+        right: 16px;
+        color: #8a8a8e;
+        font-size: 11px;
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Project pills: iPhone thread list (TeaTree #8)</h1>
+    <p class="lead">
+      Pills sit in the existing glass filter row after the environment and project menus. Tap one to
+      scope, tap it again to clear. Amber dot: another project has a live thread that needs you.
+    </p>
+    <div class="frames">
+      <div class="frame">
+        <h2>All projects</h2>
+        <p class="cap">No scope: every pill is plain. The row scrolls sideways.</p>
+        <div class="phone">
+          <div class="status"><span>9:41</span><span>●●● ▮</span></div>
+          <div class="title">Threads</div>
+          <div class="row">
+            <span class="pill">All environments <span class="chev">⌄</span></span>
+            <span class="pill">All projects <span class="chev">⌄</span></span>
+            <span class="pill">howsitgoing</span>
+            <span class="pill">playvesting</span>
+            <span class="pill">wush</span>
+            <span class="pill">lexie</span>
+          </div>
+          <div class="list">
+            <div class="section">Active</div>
+            <div class="card">
+              <div class="t">Nightly settle report <span class="badge run">Working</span></div>
+              <div class="m">howsitgoing · 2m</div>
+            </div>
+            <div class="card">
+              <div class="t">Push notifications <span class="badge ask">Approval</span></div>
+              <div class="m">wush · 5m</div>
+            </div>
+            <div class="card">
+              <div class="t">Portfolio import from CSV</div>
+              <div class="m">playvesting · 18m</div>
+            </div>
+            <div class="card">
+              <div class="t">Lesson plan editor <span class="badge ask">Failed</span></div>
+              <div class="m">lexie · 1h</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="frame">
+        <h2>Scoped to howsitgoing</h2>
+        <p class="cap">
+          Row scrolled to the pills. wush and lexie have hidden threads that need you.
+        </p>
+        <div class="phone">
+          <div class="status"><span>9:41</span><span>●●● ▮</span></div>
+          <div class="title">Threads</div>
+          <div class="row">
+            <div class="track" style="margin-left: -300px">
+              <span class="pill">All environments <span class="chev">⌄</span></span>
+              <span class="pill active">howsitgoing <span class="chev">⌄</span></span>
+              <span class="pill active">howsitgoing</span>
+              <span class="pill">playvesting</span>
+              <span class="pill">wush <span class="dot"></span></span>
+              <span class="pill">lexie <span class="dot"></span></span>
+              <span class="clear">ⓧ</span>
+            </div>
+          </div>
+          <div class="list">
+            <div class="section">Active</div>
+            <div class="card">
+              <div class="t">Nightly settle report <span class="badge run">Working</span></div>
+              <div class="m">howsitgoing · 2m</div>
+            </div>
+            <div class="card">
+              <div class="t">Card image uploads</div>
+              <div class="m">howsitgoing · 40m</div>
+            </div>
+          </div>
+          <div class="note">iPad sidebar: same pills under the search field, led by "All".</div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
