@@ -719,6 +719,7 @@ function listItemFromShell(
     linkedPullRequest: shell.linkedPullRequest ?? null,
     ...threadSettlement(shell),
     ...threadSnooze(shell, nowMs),
+    ...(shell.badges?.length ? { badges: shell.badges } : {}),
     parentThreadId: shell.lineage.parentThreadId,
     relationshipToParent: shell.lineage.relationshipToParent,
     itemCount: shell.visibleItemCount,
@@ -768,6 +769,7 @@ function threadDetail(
     ).length,
     archived: projection.thread.archivedAt !== null,
     ...threadSettlement(projection.thread),
+    ...(projection.thread.badges?.length ? { badges: projection.thread.badges } : {}),
     // From the shell, like the list, so read and list agree on snooze state.
     ...threadSnooze(shell, nowMs),
     createdAt: DateTime.formatIso(projection.thread.createdAt),

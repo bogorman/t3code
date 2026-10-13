@@ -794,6 +794,51 @@ describe("orchestrator MCP toolkit", () => {
             yield* invoke("t3_thread_organize", { action: "unpin" });
             expect((yield* orchestrator.getThreadShell(parentThreadId))?.pinnedAt).toBeNull();
 
+            // Badges: set and read back, refuse another tool's badge and unsafe links,
+            // cap at three, and clear.
+            const badged = yield* invoke("t3_thread_badge_set", {
+              key: "tasks",
+              count: 2,
+              needsYou: "2 to check",
+              url: "https://example.com/tasks",
+            });
+            expect(badged.isError).toBe(false);
+            expect((yield* orchestrator.getThreadShell(parentThreadId))?.badges).toMatchObject([
+              { key: "tasks", count: 2, needsYou: "2 to check", source: "Thread agent" },
+            ]);
+            const readBadges = yield* invoke("t3_thread_read", { threadId: parentThreadId });
+            expect(readBadges.structuredContent).toMatchObject({
+              thread: { badges: [{ key: "tasks", count: 2 }] },
+            });
+            const otherTool: McpInvocationContext.McpInvocationScope = {
+              ...invocation,
+              requestNamespace: "mcp-client-tracker",
+              thread: undefined,
+              client: { sessionId: "tracker", label: "Tracker", access: "full-access" },
+            };
+            const foreignClear = yield* invokeAs(otherTool, "t3_thread_badge_clear", {
+              threadId: parentThreadId,
+              key: "tasks",
+            });
+            expect(foreignClear.isError).toBe(true);
+            // Rejected by the tool's schema before it runs.
+            const scriptLink = yield* Effect.exit(
+              invoke("t3_thread_badge_set", { key: "unsafe", url: "javascript:alert(1)" }),
+            );
+            expect(scriptLink._tag).toBe("Failure");
+            for (const key of ["b", "c"]) {
+              expect((yield* invoke("t3_thread_badge_set", { key, label: key })).isError).toBe(
+                false,
+              );
+            }
+            expect((yield* invoke("t3_thread_badge_set", { key: "d", label: "d" })).isError).toBe(
+              true,
+            );
+            for (const key of ["tasks", "b", "c"]) {
+              expect((yield* invoke("t3_thread_badge_clear", { key })).isError).toBe(false);
+            }
+            expect((yield* orchestrator.getThreadShell(parentThreadId))?.badges ?? []).toEqual([]);
+
             if (parentRun === undefined || parentRun.rootNodeId === null) {
               return yield* Effect.die(new Error("Parent run missing."));
             }
