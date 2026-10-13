@@ -1,0 +1,678 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>T3 Code: agents on threads (mockup)</title>
+    <style>
+      :root {
+        --bg: #141414;
+        --panel: #1b1b1b;
+        --row: #232323;
+        --line: #2c2c2c;
+        --fg: #ececec;
+        --muted: #8a8a8a;
+        --dim: #5d5d5d;
+        --blue: #3b9eff;
+        --green: #3fcf8e;
+        --amber: #f5a524;
+        --red: #f06a6a;
+        --violet: #a78bfa;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: #0e0e0e;
+        color: var(--fg);
+        font:
+          13px/1.4 -apple-system,
+          "SF Pro Text",
+          system-ui,
+          sans-serif;
+        padding: 28px;
+      }
+      h1 {
+        font-size: 20px;
+        margin: 0 0 4px;
+      }
+      .sub {
+        color: var(--muted);
+        margin: 0 0 24px;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: 380px 380px 1fr;
+        gap: 28px;
+        align-items: start;
+      }
+      .label {
+        font-size: 11px;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--muted);
+        margin: 0 0 8px;
+      }
+      .label b {
+        color: var(--fg);
+      }
+      .side {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 10px;
+      }
+      .note {
+        color: var(--muted);
+        font-size: 12px;
+        margin: 10px 2px 0;
+      }
+      .note li {
+        margin: 3px 0;
+      }
+
+      /* top agent strip */
+      .strip {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        padding: 6px 4px 10px;
+        border-bottom: 1px solid var(--line);
+        margin-bottom: 8px;
+      }
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 3px 8px;
+        border-radius: 999px;
+        background: var(--row);
+        font-size: 12px;
+      }
+      .chip .n {
+        color: var(--muted);
+      }
+      .chip.off {
+        color: var(--muted);
+        border: 1px dashed #3a3a3a;
+        background: transparent;
+      }
+      .chip .nudge {
+        color: var(--blue);
+        margin-left: 2px;
+      }
+
+      /* project header */
+      .proj {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 6px 6px;
+      }
+      .pico {
+        width: 18px;
+        height: 18px;
+        border-radius: 5px;
+        display: grid;
+        place-items: center;
+        font-size: 9px;
+        font-weight: 700;
+      }
+      .pname {
+        font-weight: 600;
+      }
+      .pagents {
+        margin-left: auto;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .stack {
+        display: flex;
+      }
+      .stack .av {
+        margin-left: -5px;
+        border: 2px solid var(--panel);
+      }
+      .stack .av:first-child {
+        margin-left: 0;
+      }
+      .resident {
+        font-size: 10px;
+        padding: 1px 6px;
+        border-radius: 999px;
+        border: 1px solid #3a3a3a;
+        color: var(--muted);
+      }
+
+      /* agent avatar */
+      .av {
+        position: relative;
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        font-size: 8.5px;
+        font-weight: 700;
+        color: #111;
+        flex: none;
+      }
+      .av::after {
+        content: "";
+        position: absolute;
+        right: -2px;
+        bottom: -2px;
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        border: 2px solid var(--row);
+        background: var(--st);
+      }
+      .st-active {
+        --st: var(--green);
+      }
+      .st-wait {
+        --st: var(--amber);
+      }
+      .st-idle {
+        --st: #777;
+      }
+      .st-off {
+        --st: transparent;
+      }
+      .av.st-off {
+        background: transparent !important;
+        border: 1.5px dashed #555;
+        color: var(--dim);
+      }
+      .av.st-off::after {
+        display: none;
+      }
+      .av.pulse::after {
+        box-shadow: 0 0 0 0 rgba(63, 207, 142, 0.6);
+        animation: p 1.6s infinite;
+      }
+      @keyframes p {
+        70% {
+          box-shadow: 0 0 0 5px rgba(63, 207, 142, 0);
+        }
+      }
+
+      /* thread row */
+      .row {
+        background: var(--row);
+        border-radius: 12px;
+        padding: 9px 11px;
+        margin: 6px 0;
+        position: relative;
+      }
+      .row .t1 {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .row .title {
+        font-size: 14px;
+        flex: 1;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .row .when {
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .row .working {
+        color: var(--blue);
+        font-size: 12px;
+        display: flex;
+        gap: 5px;
+        align-items: center;
+      }
+      .row .t2 {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 4px;
+        color: var(--dim);
+        font-size: 12px;
+      }
+      .row .t2 .br {
+        flex: 1;
+      }
+      .pr {
+        color: #4fd1a5;
+        display: inline-flex;
+        gap: 3px;
+        align-items: center;
+      }
+      .badge {
+        color: var(--amber);
+        display: inline-flex;
+        gap: 3px;
+        align-items: center;
+      }
+      .row.hover {
+        outline: 1px solid #3a3a3a;
+      }
+
+      /* hover card */
+      .card {
+        position: absolute;
+        left: 40px;
+        top: 44px;
+        width: 300px;
+        z-index: 2;
+        background: rgba(38, 38, 38, 0.97);
+        border: 1px solid #3a3a3a;
+        border-radius: 12px;
+        padding: 12px;
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55);
+      }
+      .card .h {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+      }
+      .card .h .av {
+        width: 28px;
+        height: 28px;
+        font-size: 11px;
+      }
+      .card .nm {
+        font-weight: 600;
+        font-size: 14px;
+      }
+      .card .nm code {
+        font:
+          12px ui-monospace,
+          Menlo,
+          monospace;
+        color: var(--violet);
+      }
+      .card .meta {
+        color: var(--muted);
+        font-size: 12px;
+        margin-top: 8px;
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 3px 10px;
+      }
+      .card .actions {
+        display: flex;
+        gap: 6px;
+        margin-top: 10px;
+      }
+      .btn {
+        background: #2f2f2f;
+        border: 1px solid #3d3d3d;
+        color: var(--fg);
+        border-radius: 7px;
+        padding: 4px 9px;
+        font-size: 12px;
+      }
+      .btn.blue {
+        background: #1d3b5c;
+        border-color: #2a5a8c;
+        color: #cfe6ff;
+      }
+
+      /* composer */
+      .composer {
+        background: var(--row);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 10px;
+        margin-top: 8px;
+      }
+      .composer .txt {
+        color: var(--fg);
+        min-height: 40px;
+      }
+      .mention {
+        color: var(--violet);
+        background: rgba(167, 139, 250, 0.12);
+        border-radius: 4px;
+        padding: 0 3px;
+      }
+      .menu {
+        background: #262626;
+        border: 1px solid #3a3a3a;
+        border-radius: 10px;
+        padding: 4px;
+        margin-top: 8px;
+      }
+      .menu .it {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        padding: 6px 8px;
+        border-radius: 7px;
+      }
+      .menu .it.sel {
+        background: #2f3a48;
+      }
+      .menu .it .p {
+        margin-left: auto;
+        color: var(--muted);
+        font-size: 11px;
+      }
+
+      /* resident */
+      .resbox {
+        background: var(--row);
+        border-radius: 12px;
+        padding: 10px 12px;
+        margin: 6px 0;
+        display: flex;
+        gap: 10px;
+        align-items: center;
+      }
+      .resbox .w {
+        flex: 1;
+      }
+      .resbox .w b {
+        display: block;
+      }
+      .resbox .w span {
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .toggle {
+        width: 30px;
+        height: 18px;
+        border-radius: 999px;
+        background: var(--green);
+        position: relative;
+        flex: none;
+      }
+      .toggle::after {
+        content: "";
+        position: absolute;
+        right: 2px;
+        top: 2px;
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        background: #fff;
+      }
+      .toggle.offt {
+        background: #444;
+      }
+      .toggle.offt::after {
+        left: 2px;
+        right: auto;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Agents on threads</h1>
+    <p class="sub">
+      Mockup for T3 Code (TeaTree). Generic: an "agent" is the provider session running in a thread,
+      named so other agents can address it.
+    </p>
+
+    <div class="grid">
+      <!-- 1. Sidebar -->
+      <div>
+        <p class="label"><b>1 · Sidebar</b> with the agent strip on top</p>
+        <div class="side">
+          <div class="strip">
+            <span class="chip"
+              ><span class="av st-active" style="background: #f59e0b">HG</span>howsitgoing
+              <span class="n">2</span></span
+            >
+            <span class="chip"
+              ><span class="av st-wait" style="background: #22c55e">PV</span>playvesting
+              <span class="n">1</span></span
+            >
+            <span class="chip off"
+              ><span class="av st-off">LX</span>lexie · offline
+              <span class="nudge">Nudge</span></span
+            >
+            <span class="chip off"><span class="av st-off">WU</span>wush · none</span>
+          </div>
+
+          <div class="proj">
+            <span class="pico" style="background: #f59e0b; color: #111">HG</span
+            ><span class="pname">howsitgoing</span>
+            <span class="pagents"
+              ><span class="stack"
+                ><span class="av st-active" style="background: #7dd3fc">IO</span
+                ><span class="av st-active" style="background: #c4b5fd">T3</span></span
+              >
+              2 active</span
+            >
+          </div>
+          <div class="row hover">
+            <div class="t1">
+              <span class="av st-active pulse" style="background: #7dd3fc">IO</span
+              ><span class="title">Build the iOS App</span
+              ><span class="working">◌ Working 10m</span>
+            </div>
+            <div class="t2">
+              <span class="br">main</span><span class="badge">☰ 3</span><span class="pr">⑂ 1</span
+              ><span>✳︎</span>
+            </div>
+            <div class="card">
+              <div class="h">
+                <span class="av st-active" style="background: #7dd3fc">IO</span>
+                <div>
+                  <div class="nm">Agent <code>howsitgoing/ios-app</code></div>
+                  <div style="color: var(--green); font-size: 12px">
+                    ● Working · turn started 10 min ago
+                  </div>
+                </div>
+              </div>
+              <div class="meta">
+                <span>Provider</span><span>Claude Code · Opus 5.5</span> <span>Machine</span
+                ><span>Barrys-Mac-Studio · TeaTree</span> <span>Session</span><span>9681c4f1</span>
+                <span>Resident</span><span>yes, kept on for this project</span>
+              </div>
+              <div class="actions">
+                <span class="btn">Copy name</span
+                ><span class="btn blue">Message from another agent…</span>
+              </div>
+            </div>
+          </div>
+          <div style="height: 205px"></div>
+          <div class="row">
+            <div class="t1">
+              <span class="av st-wait" style="background: #c4b5fd">T3</span
+              ><span class="title">TeaTree desktop thread links</span><span class="when">2h</span>
+            </div>
+            <div class="t2">
+              <span class="br">desktop-thread-links</span><span class="pr">⑂ 1</span>
+            </div>
+          </div>
+          <div class="row">
+            <div class="t1">
+              <span class="av st-idle" style="background: #a3a3a3">SP</span
+              ><span class="title">Settle-prompt spec</span><span class="when">20h</span>
+            </div>
+            <div class="t2"><span class="br">main</span></div>
+          </div>
+
+          <div class="proj">
+            <span class="pico" style="background: #22c55e; color: #111">PV</span
+            ><span class="pname">playvesting</span>
+            <span class="pagents"
+              ><span class="av st-wait" style="background: #86efac">ST</span> needs you</span
+            >
+          </div>
+          <div class="row">
+            <div class="t1">
+              <span class="av st-wait" style="background: #86efac">ST</span
+              ><span class="title">Stock Trading Card Game Concepts</span
+              ><span class="when" style="color: var(--amber)">Waiting</span>
+            </div>
+            <div class="t2"><span class="br">main</span></div>
+          </div>
+
+          <div class="proj">
+            <span class="pico" style="background: #8b5cf6; color: #fff">LX</span
+            ><span class="pname">lexie</span>
+            <span class="pagents"
+              ><span class="av st-off">LX</span> resident offline ·
+              <span style="color: var(--blue)">Nudge</span></span
+            >
+          </div>
+        </div>
+        <ul class="note">
+          <li>
+            <b>Avatar</b> on each row = the thread's agent; the dot is its state (green working,
+            amber waiting on you, grey idle, dashed none).
+          </li>
+          <li>
+            <b>Hover</b> shows its name, provider, machine and session, with Copy name / Message.
+          </li>
+          <li>
+            <b>Strip on top</b> = projects with active agents first; offline residents get a Nudge.
+          </li>
+        </ul>
+      </div>
+
+      <!-- 2. Agent to agent + resident -->
+      <div>
+        <p class="label"><b>2 · Telling one agent to talk to another</b></p>
+        <div class="side">
+          <div class="composer">
+            <div class="txt">
+              Ask <span class="mention">@howsitgoing/ios-app</span> which API fields it needs for
+              the badge sync, then wire them up.
+            </div>
+            <div class="menu">
+              <div class="it sel">
+                <span class="av st-active" style="background: #7dd3fc">IO</span
+                ><code>howsitgoing/ios-app</code><span class="p">working</span>
+              </div>
+              <div class="it">
+                <span class="av st-wait" style="background: #c4b5fd">T3</span
+                ><code>howsitgoing/teatree-links</code><span class="p">waiting</span>
+              </div>
+              <div class="it">
+                <span class="av st-wait" style="background: #86efac">ST</span
+                ><code>playvesting/card-game</code><span class="p">waiting</span>
+              </div>
+            </div>
+          </div>
+          <ul class="note">
+            <li>
+              <b>@name in the composer</b> lets the agent message that thread (via
+              <code>t3_thread_send</code>, mode queue) and read the reply.
+            </li>
+            <li>Names are <code>project/short-title</code>, editable, unique per environment.</li>
+          </ul>
+        </div>
+
+        <p class="label" style="margin-top: 22px">
+          <b>3 · Keep an agent on, per project</b> (project menu → Resident agent)
+        </p>
+        <div class="side">
+          <div class="resbox">
+            <span class="pico" style="background: #f59e0b; color: #111">HG</span>
+            <div class="w">
+              <b>howsitgoing</b><span>Resident: howsitgoing/ios-app · working</span>
+            </div>
+            <span class="toggle"></span>
+          </div>
+          <div class="resbox">
+            <span class="pico" style="background: #8b5cf6; color: #fff">LX</span>
+            <div class="w">
+              <b>lexie</b><span>Resident: lexie/maintainer · offline since 08:40</span>
+            </div>
+            <span class="btn blue">Nudge</span><span class="toggle"></span>
+          </div>
+          <div class="resbox">
+            <span class="pico" style="background: #0ea5e9; color: #111">WU</span>
+            <div class="w"><b>wush</b><span>No resident agent</span></div>
+            <span class="toggle offt"></span>
+          </div>
+          <ul class="note">
+            <li>
+              <b>Resident</b> = the thread a project keeps on. If its session goes offline, T3 shows
+              Nudge (or does it automatically when "Keep on" is set): resume the session with a
+              short message.
+            </li>
+            <li>
+              <b>Nudge message</b> is a setting, e.g. <code>/hows-settle</code>'s sibling
+              <code>/hows-checkin</code>.
+            </li>
+            <li>A resident is never auto-settled.</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- 4. Hows side -->
+      <div>
+        <p class="label"><b>4 · Same picture on Hows</b> (Projects tile and Today)</p>
+        <div
+          style="
+            background: #f7f4ee;
+            color: #1d1b18;
+            border-radius: 14px;
+            padding: 16px;
+            max-width: 520px;
+          "
+        >
+          <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px">
+            <span
+              style="
+                background: #fff;
+                border: 1px solid #e6e0d4;
+                border-radius: 999px;
+                padding: 3px 10px;
+              "
+              >● howsitgoing · 2 agents</span
+            >
+            <span
+              style="
+                background: #fff;
+                border: 1px solid #e6e0d4;
+                border-radius: 999px;
+                padding: 3px 10px;
+                color: #b86e00;
+              "
+              >● playvesting · waiting on you</span
+            >
+            <span
+              style="
+                border: 1px dashed #c9c1b2;
+                border-radius: 999px;
+                padding: 3px 10px;
+                color: #8b857a;
+              "
+              >○ lexie · resident offline · <b style="color: #2f5bea">Nudge</b></span
+            >
+          </div>
+          <div
+            style="
+              background: #fffdf9;
+              border: 1px solid #e6e0d4;
+              border-left: 5px solid #b86e00;
+              border-radius: 14px;
+              padding: 12px;
+            "
+          >
+            <div style="display: flex; align-items: center">
+              <b>howsitgoing</b><span style="margin-left: auto; color: #1f8a4c">● 2 running</span>
+            </div>
+            <div style="margin-top: 8px; font-size: 12.5px; line-height: 1.7">
+              <div>
+                🟢 <code>howsitgoing/ios-app</code> · Mac Studio · TeaTree · <i>resident</i>
+              </div>
+              <div>🟠 <code>howsitgoing/teatree-links</code> · Mac Studio · TeaTree · waiting</div>
+            </div>
+          </div>
+          <p style="color: #6f6a61; font-size: 12px; margin: 10px 2px 0">
+            Hows reads agent names and states from T3 (MCP) and shows the machine and environment
+            (card howsitgoing-28). Nudge from the phone goes through the Mac app.
+          </p>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

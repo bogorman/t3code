@@ -478,6 +478,20 @@ export const setThreadAutoSettle = Effect.fn("EnvironmentCommands.setThreadAutoS
   });
 });
 
+export interface SetThreadKeepAgentOnInput extends ThreadCommandInput {
+  readonly enabled: boolean;
+}
+export const setThreadKeepAgentOn = Effect.fn("EnvironmentCommands.setThreadKeepAgentOn")(
+  function* (input: SetThreadKeepAgentOnInput) {
+    return yield* dispatch({
+      type: "thread.keep-agent-on.set",
+      commandId: yield* allocateCommandId(input),
+      threadId: input.threadId,
+      enabled: input.enabled,
+    });
+  },
+);
+
 export const reorderPinnedThread = Effect.fn("EnvironmentCommands.reorderPinnedThread")(function* (
   input: ReorderPinnedThreadInput,
 ) {

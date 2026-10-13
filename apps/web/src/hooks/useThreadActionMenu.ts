@@ -96,6 +96,7 @@ export function useThreadActionMenu(input: {
     pinThread,
     confirmAndUnpinThread,
     setThreadAutoSettle,
+    setThreadKeepAgentOn,
     archiveThread,
     deleteThread,
     markThreadUnread,
@@ -154,6 +155,7 @@ export function useThreadActionMenu(input: {
           isPinned: thread.pinnedAt != null,
           isSettled: supports.settlement && thread.settledOverride === "settled",
           autoSettleEnabled: thread.autoSettleDisabledAt == null,
+          keepAgentOn: thread.keepAgentOnAt != null,
           isSnoozed: supports.snooze && effectiveSnoozed(thread, { now: now.toISOString() }),
           canSnoozeNow: canSnooze(thread, { now: now.toISOString() }),
           isRegeneratingTitle,
@@ -248,6 +250,12 @@ export function useThreadActionMenu(input: {
           case "auto-settle:disabled":
             await reportFailure("Failed to update auto-settle", () =>
               setThreadAutoSettle(threadRef, action === "auto-settle:enabled"),
+            );
+            return;
+          case "keep-agent-on:on":
+          case "keep-agent-on:off":
+            await reportFailure("Failed to update keep agent on", () =>
+              setThreadKeepAgentOn(threadRef, action === "keep-agent-on:on"),
             );
             return;
           case "rename":
@@ -359,6 +367,7 @@ export function useThreadActionMenu(input: {
       projects,
       router,
       setThreadAutoSettle,
+      setThreadKeepAgentOn,
       settleThread,
       snoozeThread,
       threadRef,

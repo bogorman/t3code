@@ -1,6 +1,7 @@
 import { resolveThreadWorkingStartedAt } from "@t3tools/client-runtime/state/models";
 import { backgroundWorkHoldsCompletion } from "@t3tools/shared/orchestrationV2PendingBackgroundWork";
 import { threadPullRequestSearchTerms } from "@t3tools/shared/threadPullRequests";
+import { threadAgentIsOnline } from "@t3tools/shared/threadAgent";
 import * as React from "react";
 import {
   isAtomCommandInterrupted,
@@ -1000,6 +1001,28 @@ export function resolveSidebarThreadStatus(thread: SidebarThreadStatusInput): Si
     return thread.runtime.lastErrorClass === "usage_limit" ? "limited" : "failed";
   }
   return "ready";
+}
+
+/**
+ * The thread's agent, from its provider session: working on a turn, waiting on
+ * the user (an approval or a question), idle at its prompt, offline (session
+ * stopped or failed), or none (no session attached).
+ */
+export type SidebarAgentState = "working" | "needs-you" | "idle" | "offline" | "none";
+
+export function resolveSidebarAgentState(
+  thread: SidebarThreadStatusInput & Pick<SidebarThreadSummary, "agentSessionStatus">,
+): SidebarAgentState {
+  if (thread.agentSessionStatus === null) return "none";
+  if (!threadAgentIsOnline(thread.agentSessionStatus)) return "offline";
+  const status = resolveSidebarThreadStatus(thread);
+  if (status === "approval" || status === "input") return "needs-you";
+  if (status === "working") return "working";
+  return "idle";
+}
+
+export function sidebarAgentIsActive(state: SidebarAgentState): boolean {
+  return state === "working" || state === "needs-you" || state === "idle";
 }
 
 export type SidebarV2TopStatusKind =
