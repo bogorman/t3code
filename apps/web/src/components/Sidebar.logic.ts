@@ -1025,6 +1025,12 @@ export function sidebarAgentIsActive(state: SidebarAgentState): boolean {
   return state === "working" || state === "needs-you" || state === "idle";
 }
 
+/** A pending approval or question, or a run stopped by an error or a limit. */
+export function sidebarThreadNeedsUser(thread: SidebarThreadStatusInput): boolean {
+  const status = resolveSidebarThreadStatus(thread);
+  return status === "approval" || status === "input" || status === "failed" || status === "limited";
+}
+
 export type SidebarV2TopStatusKind =
   | "approval"
   | "done"

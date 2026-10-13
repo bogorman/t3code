@@ -216,6 +216,7 @@ import {
   resolveSidebarSweepKeys,
   resolveSidebarDropTarget,
   resolveSidebarDropVerb,
+  sidebarThreadNeedsUser,
   resolveSidebarThreadSection,
   resolveSidebarRowAccessibility,
   type SidebarDropVerb,
@@ -290,6 +291,7 @@ import {
   useComboboxFilter,
 } from "./ui/combobox";
 import { SidebarContent, SidebarGroup, useSidebar } from "./ui/sidebar";
+import { Toggle, ToggleGroup } from "./ui/toggle-group";
 import { SidebarChromeFooter, SidebarChromeHeader } from "./sidebar/SidebarChrome";
 import { SidebarHeaderIconButton, SidebarThreadHeader } from "./sidebar/SidebarThreadHeader";
 import { Menu, MenuItem, MenuPopup, MenuSeparator, MenuShortcut, MenuTrigger } from "./ui/menu";
@@ -2795,6 +2797,26 @@ export default function Sidebar() {
           ),
     [scopedProjectGroup],
   );
+  // While scoped, pills for other projects mark threads the scope hides that
+  // need the user. Settled threads are done, so they never raise the mark.
+  const projectKeysNeedingUser = useMemo(() => {
+    const keys = new Set<string>();
+    if (projectScopeKey === null) return keys;
+    const projectKeyByRef = new Map(
+      projectGroups.flatMap((project) =>
+        project.memberProjectRefs.map(
+          (projectRef) =>
+            [`${projectRef.environmentId}:${projectRef.projectId}`, project.projectKey] as const,
+        ),
+      ),
+    );
+    for (const thread of filterSidebarV2VisibleThreads(threads, null)) {
+      if (thread.settledOverride === "settled" || !sidebarThreadNeedsUser(thread)) continue;
+      const projectKey = projectKeyByRef.get(`${thread.environmentId}:${thread.projectId}`);
+      if (projectKey !== undefined && projectKey !== projectScopeKey) keys.add(projectKey);
+    }
+    return keys;
+  }, [projectGroups, projectScopeKey, threads]);
   // Configs identify scratch projects, so both they and live project snapshots
   // must arrive before a persisted scope can be considered missing.
   const allProjectSnapshotsReady = useAllEnvironmentProjectSnapshotsReady();
@@ -5308,6 +5330,39 @@ export default function Sidebar() {
               activeSearchResultIndex={activeSearchResultIndex}
               onClearSearch={clearThreadSearch}
             />
+            {projectGroups.length > 1 ? (
+              // One-click project scope: drives the same persisted scope as the
+              // menu above. Scrolls sideways so a long catalog keeps one row.
+              <div className="-mx-2 mt-1 overflow-x-auto px-2 [scrollbar-width:none]">
+                <ToggleGroup
+                  variant="default"
+                  size="segmented"
+                  aria-label="Filter threads by project"
+                  value={[projectScopeKey ?? "all"]}
+                  onValueChange={(value) => {
+                    const next = value[0];
+                    setProjectScopeKey(next === undefined || next === "all" ? null : next);
+                  }}
+                >
+                  <Toggle variant="pill" value="all">
+                    All
+                  </Toggle>
+                  {projectGroups.map((project) => (
+                    <Toggle key={project.projectKey} variant="pill" value={project.projectKey}>
+                      <ProjectFavicon project={project} className="size-3.5" />
+                      {project.displayName}
+                      {projectKeysNeedingUser.has(project.projectKey) ? (
+                        <span
+                          role="img"
+                          aria-label="Needs you"
+                          className="size-1.5 shrink-0 rounded-full bg-warning"
+                        />
+                      ) : null}
+                    </Toggle>
+                  ))}
+                </ToggleGroup>
+              </div>
+            ) : null}
             <SidebarAgentStrip
               projects={agentProjects}
               selectedProjectKey={projectScopeKey}
