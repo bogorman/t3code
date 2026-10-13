@@ -80,6 +80,7 @@ import { SwipeableScrollGateProvider, useSwipeableScrollGate } from "./thread-sw
 import { useMaterialFabScroll } from "./MaterialFabScrollContext";
 import { useWorkspaceTabs } from "../workspace/WorkspaceTabsContext";
 import { ThreadListFilters } from "./ThreadListFilters";
+import { ProjectPills } from "./ProjectPills";
 
 /* ─── Types ──────────────────────────────────────────────────────────── */
 
@@ -991,7 +992,14 @@ export function HomeScreen(props: HomeScreenProps) {
           selectedProjectKey={props.selectedProjectKey}
           onEnvironmentChange={props.onEnvironmentChange}
           onProjectChange={props.onProjectChange}
-        />
+        >
+          <ProjectPills
+            scopes={projectScopes}
+            threads={props.threads}
+            selectedProjectKey={props.selectedProjectKey}
+            onProjectChange={props.onProjectChange}
+          />
+        </ThreadListFilters>
       ) : null}
     </>
   );

@@ -187,6 +187,7 @@ import {
 import { formatRelativeTimeLabel, parseTimestampDate } from "../timestampFormat";
 import type { SidebarThreadSummary } from "../types";
 import { isScratchProject } from "@t3tools/client-runtime/state/projects";
+import { projectKeysNeedingUser as findProjectKeysNeedingUser } from "@t3tools/client-runtime/state/projects-needing-user";
 import type { EnvironmentProject } from "@t3tools/client-runtime/state/shell";
 import { cn } from "~/lib/utils";
 import { ThreadBadges } from "./ThreadBadges";
@@ -219,7 +220,6 @@ import {
   resolveSidebarSweepKeys,
   resolveSidebarDropTarget,
   resolveSidebarDropVerb,
-  sidebarThreadNeedsUser,
   sidebarDropKeepsLink,
   sidebarLinkPositions,
   type SidebarLinkPosition,
@@ -2839,8 +2839,7 @@ export default function Sidebar() {
   // While scoped, pills for other projects mark threads the scope hides that
   // need the user. Settled threads are done, so they never raise the mark.
   const projectKeysNeedingUser = useMemo(() => {
-    const keys = new Set<string>();
-    if (projectScopeKey === null) return keys;
+    if (projectScopeKey === null) return new Set<string>();
     const projectKeyByRef = new Map(
       projectGroups.flatMap((project) =>
         project.memberProjectRefs.map(
@@ -2849,12 +2848,11 @@ export default function Sidebar() {
         ),
       ),
     );
-    for (const thread of filterSidebarV2VisibleThreads(threads, null)) {
-      if (thread.settledOverride === "settled" || !sidebarThreadNeedsUser(thread)) continue;
-      const projectKey = projectKeyByRef.get(`${thread.environmentId}:${thread.projectId}`);
-      if (projectKey !== undefined && projectKey !== projectScopeKey) keys.add(projectKey);
-    }
-    return keys;
+    return findProjectKeysNeedingUser({
+      threads,
+      projectKeyOf: (thread) => projectKeyByRef.get(`${thread.environmentId}:${thread.projectId}`),
+      selectedProjectKey: projectScopeKey,
+    });
   }, [projectGroups, projectScopeKey, threads]);
   // Configs identify scratch projects, so both they and live project snapshots
   // must arrive before a persisted scope can be considered missing.

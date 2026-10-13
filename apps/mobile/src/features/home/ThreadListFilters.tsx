@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Pressable, ScrollView } from "react-native";
 import { SymbolView } from "../../components/AppSymbol";
 import { ListFilterMenu } from "../workspace/ListFilterMenu";
@@ -12,7 +13,10 @@ export function ThreadListFilters(
     | "selectedProjectKey"
     | "onEnvironmentChange"
     | "onProjectChange"
-  >,
+  > & {
+    /** Extra chips after the menus, such as project pills. */
+    readonly children?: ReactNode;
+  },
 ) {
   const selectedEnvironment = props.environments.find(
     (environment) => environment.environmentId === props.selectedEnvironmentId,
@@ -81,6 +85,7 @@ export function ThreadListFilters(
           }
         }}
       />
+      {props.children}
       {props.selectedEnvironmentId !== null || props.selectedProjectKey !== null ? (
         <Pressable
           accessibilityRole="button"

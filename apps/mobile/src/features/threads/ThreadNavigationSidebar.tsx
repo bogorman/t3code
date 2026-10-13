@@ -15,7 +15,7 @@ import type { MenuAction } from "@react-native-menu/menu";
 import { useAtomValue } from "@effect/atom-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { LayoutChangeEvent, TextInputInstance } from "react-native";
-import { Platform, StyleSheet, TextInput, View } from "react-native";
+import { Platform, ScrollView, StyleSheet, TextInput, View } from "react-native";
 import { GestureDetector, useNativeGesture } from "react-native-gesture-handler";
 import type { SwipeableMethods } from "react-native-gesture-handler/ReanimatedSwipeable";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -42,6 +42,7 @@ import { useThreadJumpShortcuts } from "../keyboard/threadKeyboardShortcuts";
 import { useHomeListOptions } from "../home/home-list-options";
 import { buildHomeListFilterMenu } from "../home/home-list-filter-menu";
 import { buildHomeProjectScopes } from "../home/homeThreadList";
+import { ProjectPills } from "../home/ProjectPills";
 import { SwipeableScrollGateProvider, useSwipeableScrollGate } from "../home/thread-swipe-actions";
 import { usePendingTaskListActions } from "../home/usePendingTaskListActions";
 import { useThreadListActions } from "../home/useThreadListActions";
@@ -1102,6 +1103,21 @@ function ThreadNavigationSidebarPane(
               value={props.searchQuery}
             />
           </View>
+          {projectScopes.length > 1 ? (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 8, gap: 8 }}
+            >
+              <ProjectPills
+                showAll
+                scopes={projectScopes}
+                threads={threads}
+                selectedProjectKey={selectedProjectKey}
+                onProjectChange={setSelectedProjectKey}
+              />
+            </ScrollView>
+          ) : null}
         </View>
       )}
     </View>
