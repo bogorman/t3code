@@ -6,16 +6,16 @@ land upstream. The name is a joke ("T3" in a Dublin accent). Fork: github.com/bo
 
 ## Branches
 
-| Branch                 | What                                                                                    | State         |
-| ---------------------- | --------------------------------------------------------------------------------------- | ------------- |
-| `main`                 | upstream (pingdotgg/t3code) unchanged                                                   | mirror        |
-| `desktop-thread-links` | desktop app opens `t3code://threads/<environmentId>/<threadId>`                         | fork PR #1    |
-| `settle-prompt`        | "Message on settle" setting: a thread gets one more turn (e.g. a skill) when it settles | fork PR #2    |
-| `thread-badges`        | MCP `t3_thread_badge_set` / `_clear`: badges from outside tools, with a needs-you mark  | fork PR #3    |
-| `thread-agents`        | agents on threads: state, names, strip, `@agent`, keep agent on, Nudge                  | issue #7      |
-| `project-pills`        | project pills under the sidebar search, needs-you dot on hidden projects                | issue #8      |
-| `thread-link-groups`   | linked threads: drag one onto another, shared card, Unlink                              | issue #9      |
-| `tea-tree`             | `main` + the feature branches + local-only commits                                      | what we build |
+| Branch                 | What                                                                                    | State                                             |
+| ---------------------- | --------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| `main`                 | upstream (pingdotgg/t3code) unchanged                                                   | mirror                                            |
+| `desktop-thread-links` | desktop app opens `t3code://threads/<environmentId>/<threadId>`                         | fork PR #1; now upstream (#18454), branch dropped |
+| `settle-prompt`        | "Message on settle" setting: a thread gets one more turn (e.g. a skill) when it settles | fork PR #2                                        |
+| `thread-badges`        | MCP `t3_thread_badge_set` / `_clear`: badges from outside tools, with a needs-you mark  | fork PR #3                                        |
+| `thread-agents`        | agents on threads: state, names, strip, `@agent`, keep agent on, Nudge                  | issue #7                                          |
+| `project-pills`        | project pills under the sidebar search, needs-you dot on hidden projects                | issue #8                                          |
+| `thread-link-groups`   | linked threads: drag one onto another, shared card, Unlink                              | issue #9                                          |
+| `tea-tree`             | `main` + the feature branches + local-only commits                                      | what we build                                     |
 
 - **Feature branches are generic:** nothing specific to Hows or any one tool, so they can go upstream. Nothing has
   been sent upstream; ask the owner first.
