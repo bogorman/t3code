@@ -3,7 +3,10 @@ import { resolveProjectSettings } from "@t3tools/shared/projectSettings";
 import { visibleThreadPullRequests } from "@t3tools/shared/threadPullRequests";
 import {
   CommandId,
+  MessageId,
+  type RunId,
   type ThreadId,
+  type OrchestrationV2AppThread,
   type OrchestrationV2DomainEvent,
   type OrchestrationV2ThreadShell,
 } from "@t3tools/contracts";
@@ -37,6 +40,15 @@ export interface SettlementPullRequest {
 
 const DAY_MS = 24 * 60 * 60 * 1_000;
 export const QUEUED_TURN_START_GRACE_MS = 2 * 60 * 1_000;
+/** How long a settle prompt's turn may run before it is stopped and the thread settles. */
+export const SETTLE_PROMPT_TIMEOUT_MS = 10 * 60 * 1_000;
+const TERMINAL_RUN_STATUSES: ReadonlySet<string> = new Set([
+  "completed",
+  "interrupted",
+  "failed",
+  "cancelled",
+  "rolled_back",
+]);
 
 function toMillis(value: DateTime.Utc | null | undefined): number | null {
   return value == null ? null : DateTime.toEpochMillis(value);
@@ -556,6 +568,135 @@ export const make = Effect.gen(function* () {
     runSweep(null, threadId),
   );
 
+  // Settle prompt: a thread whose project sets one gets that message as one
+  // more turn when it settles (sending it re-engages the thread), then settles
+  // again when the turn ends. "running" waits for that turn; "settling" marks
+  // the settle this service asked for, so it cleans up instead of prompting.
+  const settlePrompts = new Map<
+    ThreadId,
+    { readonly messageId: MessageId; phase: "running" | "settling"; runId: RunId | null }
+  >();
+  // Settling a settled thread re-emits thread.settled with the same settledAt;
+  // one prompt per settlement.
+  const settlePromptedAt = new Map<ThreadId, number>();
+
+  const settleAfterPrompt = Effect.fn("ThreadSettlementServiceV2.settleAfterPrompt")(
+    function* (threadId: ThreadId, messageId: MessageId, timedOut: boolean) {
+      const pending = settlePrompts.get(threadId);
+      if (pending === undefined || pending.messageId !== messageId || pending.phase !== "running") {
+        return;
+      }
+      pending.phase = "settling";
+      const uuid = yield* crypto.randomUUIDv4;
+      // A turn still running at the timeout is stopped; settling refuses active work.
+      if (timedOut && pending.runId !== null) {
+        yield* orchestrator.dispatch({
+          type: "run.interrupt",
+          commandId: CommandId.make(`server:settle-prompt-interrupt:${threadId}:${uuid}`),
+          threadId,
+          runId: pending.runId,
+        });
+      }
+      yield* orchestrator
+        .dispatch({
+          type: "thread.settle",
+          commandId: CommandId.make(`server:settle-prompt-settle:${threadId}:${uuid}`),
+          threadId,
+        })
+        .pipe(
+          // Refused when the turn left the thread blocked on the user (a question,
+          // an approval, a queued message): it stays active for them.
+          Effect.tapError(() => Effect.sync(() => settlePrompts.delete(threadId))),
+        );
+    },
+    (effect, threadId) =>
+      effect.pipe(
+        Effect.catchCause((cause) =>
+          Cause.hasInterruptsOnly(cause)
+            ? Effect.failCause(cause)
+            : Effect.logWarning("settling after the settle prompt failed", {
+                threadId,
+                cause: Cause.pretty(cause),
+              }),
+        ),
+      ),
+  );
+
+  /** Sends the project's settle prompt; false when there is none to send. */
+  const sendSettlePrompt = Effect.fn("ThreadSettlementServiceV2.sendSettlePrompt")(
+    function* (thread: OrchestrationV2AppThread) {
+      if (thread.archivedAt !== null) return false;
+      const settledAtMs = toMillis(thread.settledAt);
+      if (settledAtMs === null || settlePromptedAt.get(thread.id) === settledAtMs) return false;
+      const prompt = resolveProjectSettings(yield* settingsService.getSettings, thread.projectId)
+        .settings.settlePrompt;
+      if (prompt === "") return false;
+      settlePromptedAt.set(thread.id, settledAtMs);
+      const uuid = yield* crypto.randomUUIDv4;
+      const messageId = MessageId.make(`message:settle-prompt:${uuid}`);
+      settlePrompts.set(thread.id, { messageId, phase: "running", runId: null });
+      yield* orchestrator
+        .dispatch({
+          type: "message.dispatch",
+          commandId: CommandId.make(`server:settle-prompt:${thread.id}:${uuid}`),
+          threadId: thread.id,
+          messageId,
+          text: prompt,
+          attachments: [],
+          dispatchMode: { type: "start_immediately" },
+          createdBy: "system",
+          creationSource: "server",
+        })
+        .pipe(Effect.tapError(() => Effect.sync(() => settlePrompts.delete(thread.id))));
+      yield* Effect.sleep(SETTLE_PROMPT_TIMEOUT_MS).pipe(
+        Effect.andThen(settleAfterPrompt(thread.id, messageId, true)),
+        Effect.forkDetach,
+      );
+      return true;
+    },
+    (effect, thread) =>
+      effect.pipe(
+        Effect.catchCause((cause) =>
+          Cause.hasInterruptsOnly(cause)
+            ? Effect.failCause(cause)
+            : Effect.logWarning("sending the settle prompt failed", {
+                threadId: thread.id,
+                cause: Cause.pretty(cause),
+              }).pipe(Effect.as(false)),
+        ),
+      ),
+  );
+
+  const onThreadSettled = Effect.fn("ThreadSettlementServiceV2.onThreadSettled")(function* (
+    thread: OrchestrationV2AppThread,
+  ) {
+    const pending = settlePrompts.get(thread.id);
+    if (pending?.phase === "running") return;
+    if (pending?.phase === "settling") {
+      // The settle that follows the prompt: the thread is done, clean up as usual.
+      settlePrompts.delete(thread.id);
+    } else if (yield* sendSettlePrompt(thread)) {
+      // Cleanup waits for the settle that follows the prompt's turn.
+      return;
+    }
+    yield* cleanUpSettledThread(thread.id);
+  });
+
+  /** A settle prompt's turn ended (any way): settle the thread again. */
+  const onRunUpdated = (run: {
+    readonly id: RunId;
+    readonly threadId: ThreadId;
+    readonly userMessageId: MessageId;
+    readonly status: string;
+  }) => {
+    const pending = settlePrompts.get(run.threadId);
+    if (pending === undefined || pending.messageId !== run.userMessageId) return Effect.void;
+    pending.runId = run.id;
+    return TERMINAL_RUN_STATUSES.has(run.status)
+      ? settleAfterPrompt(run.threadId, pending.messageId, false)
+      : Effect.void;
+  };
+
   // Settling closes the thread's shells that sit at an idle prompt, so they stop
   // holding the worktree. A terminal running a command (a dev server, an
   // editor) stays for the user to close. Then the project's settle script runs
@@ -605,7 +746,7 @@ export const make = Effect.gen(function* () {
   const processEvent = (event: OrchestrationV2DomainEvent) => {
     switch (event.type) {
       case "thread.settled":
-        return cleanUpSettledThread(event.threadId);
+        return onThreadSettled(event.payload);
       case "thread.pull-request-synced":
       case "provider-session.detached":
         return worker.enqueue(event.threadId);
@@ -613,12 +754,16 @@ export const make = Effect.gen(function* () {
         return event.payload.status !== "starting" && event.payload.status !== "running"
           ? worker.enqueue(event.threadId)
           : Effect.void;
+      case "run.created":
+        return onRunUpdated(event.payload);
       case "run.updated":
-        return ["completed", "interrupted", "failed", "cancelled", "rolled_back"].includes(
-          event.payload.status,
-        )
-          ? worker.enqueue(event.threadId)
-          : Effect.void;
+        return onRunUpdated(event.payload).pipe(
+          Effect.andThen(
+            TERMINAL_RUN_STATUSES.has(event.payload.status)
+              ? worker.enqueue(event.threadId)
+              : Effect.void,
+          ),
+        );
       default:
         return Effect.void;
     }
