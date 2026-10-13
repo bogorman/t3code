@@ -17,6 +17,7 @@ import type {
   EnvironmentThreadShell,
 } from "@t3tools/client-runtime/state/shell";
 import type { EnvironmentThreadSearchMatch } from "@t3tools/client-runtime/state/thread-search";
+import type { ThreadLinkPosition } from "@t3tools/client-runtime/state/thread-links";
 import { AuthOrchestrationOperateScope, type EnvironmentMachineKind } from "@t3tools/contracts";
 import { canSnooze, resolveSnoozePresets } from "@t3tools/client-runtime/state/thread-settled";
 import { resolveThreadAgentState } from "@t3tools/client-runtime/state/thread-agent";
@@ -55,6 +56,7 @@ import {
 import { QueuedMessageIcon } from "./queued-message-icon";
 import { shouldRecedeThreadRow } from "./thread-row-emphasis";
 import { ThreadSearchMatchExcerpt } from "./thread-search-match";
+import { openThreadLinkPicker, unlinkThread } from "./threadLinkActions";
 
 /**
  * Thread List v2 renders one flat native list: rich edge-to-edge rows for
@@ -140,6 +142,47 @@ const LEGACY_MENU_ACTIONS: MenuAction[] = [
   { id: "archive", title: "Archive", image: "archivebox" },
   { id: "delete", title: "Delete", image: "trash", attributes: { destructive: true } },
 ];
+
+/** Linked rows (TeaTree #9): a thin rail in the leading gutter joins the
+    group, and each follower carries a small link mark where it meets the
+    row above. The rail stays inside the row so recycled cells never clip it. */
+function ThreadLinkRail(props: {
+  readonly position: ThreadLinkPosition;
+  readonly sidebar: boolean;
+}) {
+  const follower = props.position !== "first";
+  const left = props.sidebar ? 5 : 9;
+  return (
+    <>
+      <View
+        pointerEvents="none"
+        className="absolute w-0.5 rounded-full bg-primary/30"
+        style={{
+          left,
+          top: follower ? 0 : 14,
+          bottom: props.position === "last" ? 14 : 0,
+        }}
+      />
+      {follower ? (
+        <View
+          pointerEvents="none"
+          className="absolute items-center justify-center rounded-full border border-border bg-screen"
+          style={{ left: left - 7, top: 4, width: 16, height: 16 }}
+        >
+          <SymbolView
+            name="link"
+            size={9}
+            tintColorClassName="accent-foreground-muted"
+            type="monochrome"
+          />
+        </View>
+      ) : null}
+    </>
+  );
+}
+
+/** Indent that lets a linked follower read as belonging to the row above. */
+const THREAD_LINK_FOLLOWER_INDENT = 8;
 
 /** Rounded-row radius shared with the v1 sidebar rows. */
 const SIDEBAR_V2_ROW_RADIUS = 12;
@@ -577,6 +620,10 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
       would fall off the end of the list. */
   readonly canMoveUp?: boolean;
   readonly canMoveDown?: boolean;
+  /** Place in a run of linked threads, or null for an ordinary row. */
+  readonly linkPosition?: ThreadLinkPosition | null;
+  /** Server supports thread.link/unlink (TeaTree #9). */
+  readonly linkingSupported?: boolean;
   readonly onSwipeableWillOpen: (methods: SwipeableMethods) => void;
   readonly onSwipeableClose: (methods: SwipeableMethods) => void;
   /** List key checked against the Home swipe row activation. */
@@ -783,6 +830,18 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
         : [],
     [props.autoSettleOptOutSupported, thread.autoSettleDisabledAt],
   );
+  const linkMenuItems = useMemo<MenuAction[]>(
+    () =>
+      props.linkingSupported === true
+        ? [
+            { id: "link", title: "Link to thread…", image: "link" },
+            ...(thread.linkGroupId
+              ? [{ id: "unlink", title: "Unlink thread", image: "minus.circle" }]
+              : []),
+          ]
+        : [],
+    [props.linkingSupported, thread.linkGroupId],
+  );
   const titleMenuItems = useMemo<MenuAction[]>(
     () => [
       { id: "rename", title: "Rename", image: "square.and.pencil" },
@@ -867,6 +926,8 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
       if (nativeEvent.event === "archive") handleArchive();
       if (nativeEvent.event === "rename") handleRename();
       if (nativeEvent.event === "regenerate-title") handleRegenerateTitle();
+      if (nativeEvent.event === "link") openThreadLinkPicker(thread);
+      if (nativeEvent.event === "unlink") void unlinkThread(thread);
       if (nativeEvent.event === "copy-thread-id") {
         copyTextWithHaptic(thread.id, { target: "thread-id" });
       }
@@ -1196,6 +1257,20 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
   ) : (
     cardContent
   );
+  const linkPosition = props.linkPosition ?? null;
+  const linkIndent =
+    linkPosition !== null && linkPosition !== "first" ? THREAD_LINK_FOLLOWER_INDENT : 0;
+  const linkRail =
+    linkPosition === null ? null : <ThreadLinkRail position={linkPosition} sidebar={sidebarPane} />;
+  const linkedCardContent =
+    linkPosition === null ? (
+      fadedCardContent
+    ) : (
+      <View style={{ paddingLeft: linkIndent }}>{fadedCardContent}</View>
+    );
+  // Members of one group read as a block: no hairline between them.
+  const showTrailingDivider =
+    props.showTrailingDivider !== false && (linkPosition === null || linkPosition === "last");
 
   const rowContent = (close: () => void) =>
     variant === "card" ? (
@@ -1216,16 +1291,17 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
         }}
         style={rowAppearance.cardStyle}
       >
+        {linkRail}
         {sidebarPane ? (
-          fadedCardContent
+          linkedCardContent
         ) : (
           /* Flat native list rows: no tonal containers — colored status
              labels and text hierarchy carry state, an inset hairline
              separates rows. The opaque screen background stays so swipe
              actions reveal behind the row. */
           <View>
-            <View className={THREAD_LIST_V2_ROW_CONTENT_CLASS_NAME}>{fadedCardContent}</View>
-            {THREAD_LIST_V2_ROW_DIVIDERS && props.showTrailingDivider !== false ? (
+            <View className={THREAD_LIST_V2_ROW_CONTENT_CLASS_NAME}>{linkedCardContent}</View>
+            {THREAD_LIST_V2_ROW_DIVIDERS && showTrailingDivider ? (
               <View className="ml-5 h-px bg-border-subtle" />
             ) : null}
           </View>
@@ -1249,12 +1325,14 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
         }}
         style={rowAppearance.style}
       >
+        {linkRail}
         {/* Settled history recedes: dimmed favicon + muted title. */}
         <View
           className={cn(
             "min-h-[44px] flex-row items-center gap-2.5 py-2",
             sidebarPane ? "px-3" : "px-5",
           )}
+          style={linkIndent > 0 ? { marginLeft: linkIndent } : undefined}
         >
           {props.project ? (
             <View className="opacity-40">
@@ -1349,6 +1427,7 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
                   ]
                 : []),
               { id: "copy-thread-id", title: "Copy thread ID", image: "doc.on.doc" },
+              ...linkMenuItems,
               ...(snoozedRow
                 ? snoozedMenuActions
                 : !props.settlementSupported

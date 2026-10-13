@@ -62,6 +62,7 @@ import { useAtomCommand } from "../state/use-atom-command";
 import { useOrchestrationCommand } from "../state/use-orchestration-command";
 import { useAtomQueryRunner } from "../state/use-atom-query-runner";
 import { randomUUID } from "~/lib/utils";
+import { planThreadLink } from "@t3tools/client-runtime/state/thread-links";
 
 export class ThreadArchiveBlockedError extends Schema.TaggedError<ThreadArchiveBlockedError>()(
   "ThreadArchiveBlockedError",
@@ -792,18 +793,21 @@ export function useThreadActions() {
   // one environment whose server supports linking.
   const linkThreads = useCallback(
     async (source: ScopedThreadRef, target: ScopedThreadRef) => {
-      const existing = readThreadShell(target)?.linkGroupId ?? null;
-      const linkGroupId = existing ?? randomUUID();
-      if (existing === null) {
+      const plan = planThreadLink(
+        readThreadShell(source) ?? {},
+        readThreadShell(target) ?? {},
+        randomUUID,
+      );
+      if (plan.linkTarget) {
         const started = await linkThreadMutation({
           environmentId: target.environmentId,
-          input: { threadId: target.threadId, linkGroupId },
+          input: { threadId: target.threadId, linkGroupId: plan.linkGroupId },
         });
-        if (started._tag !== "Success") return started;
+        if (started._tag !== "Success" || !plan.linkSource) return started;
       }
       return linkThreadMutation({
         environmentId: source.environmentId,
-        input: { threadId: source.threadId, linkGroupId },
+        input: { threadId: source.threadId, linkGroupId: plan.linkGroupId },
       });
     },
     [linkThreadMutation],

@@ -10,6 +10,7 @@ import { createStaticNavigation } from "@react-navigation/native";
 
 import { RegistryContext } from "@effect/atom-react";
 import { ThreadArrangementHost } from "./features/threads/ThreadArrangementSheet";
+import { ThreadLinkPickerHost } from "./features/threads/ThreadLinkPickerSheet";
 import { ConfirmDialogHost } from "./components/ConfirmDialogHost";
 import { CloudAuthProvider } from "./features/cloud/CloudAuthProvider";
 import { prepareNativeShowcaseCapture } from "./features/showcase/nativeShowcaseScene";
@@ -98,6 +99,7 @@ function AppContent() {
                   </IncomingShareProvider>
                   <ConfirmDialogHost />
                   <ThreadArrangementHost />
+                  <ThreadLinkPickerHost />
                 </NativeLayoutMetricsProvider>
               </GlobalVoiceInputControl>
               {/* Anchored-menu overlays render here — in-window, so the

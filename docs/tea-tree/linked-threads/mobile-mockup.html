@@ -1,0 +1,568 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Linked threads (mobile)</title>
+    <style>
+      :root {
+        --screen: #000;
+        --sheet: #1c1c1e;
+        --fg: #f2f2f7;
+        --muted: #8e8e93;
+        --tertiary: #636366;
+        --hair: #2c2c2e;
+        --primary: #0a84ff;
+        --rail: rgba(10, 132, 255, 0.3);
+        --emerald: #34d399;
+        --sky: #38bdf8;
+        --claude: #d97757;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: #151517;
+        color: var(--fg);
+        font:
+          15px/1.3 -apple-system,
+          "SF Pro Text",
+          system-ui,
+          sans-serif;
+        padding: 28px;
+        width: 1330px;
+      }
+      h1 {
+        font-size: 18px;
+        font-weight: 600;
+        margin: 0 0 4px;
+      }
+      p.lead {
+        color: var(--muted);
+        margin: 0 0 22px;
+        max-width: 1200px;
+        font-size: 14px;
+      }
+      .frames {
+        display: flex;
+        gap: 32px;
+        align-items: flex-start;
+      }
+      .frame {
+        width: 390px;
+      }
+      .frame h2 {
+        font-size: 13px;
+        font-weight: 600;
+        margin: 0 0 4px;
+      }
+      .frame .cap {
+        color: var(--muted);
+        font-size: 12px;
+        margin: 0 0 10px;
+        min-height: 48px;
+      }
+      .phone {
+        width: 390px;
+        height: 700px;
+        background: var(--screen);
+        border: 1px solid #2a2a2d;
+        border-radius: 44px;
+        overflow: hidden;
+        position: relative;
+      }
+      .status {
+        height: 50px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 6px 30px 0;
+        font-weight: 600;
+        font-size: 15px;
+      }
+      .navtitle {
+        font-size: 30px;
+        font-weight: 700;
+        padding: 4px 20px 8px;
+      }
+      .section {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 14px 20px 6px;
+        font-size: 12px;
+        color: var(--tertiary);
+        font-weight: 500;
+      }
+      .section::after {
+        content: "";
+        flex: 1;
+        height: 1px;
+        background: var(--hair);
+      }
+      .row {
+        position: relative;
+        padding: 10px 20px 0;
+      }
+      .row .content {
+        padding-bottom: 10px;
+      }
+      .row.follower .content {
+        padding-left: 8px;
+      }
+      .row .divider {
+        margin-left: 20px;
+        height: 1px;
+        background: #1f1f21;
+        margin-right: -20px;
+      }
+      .rail {
+        position: absolute;
+        left: 9px;
+        width: 2px;
+        border-radius: 1px;
+        background: var(--rail);
+        top: 14px;
+        bottom: 0;
+      }
+      .row.follower .rail {
+        top: 0;
+      }
+      .row.last .rail {
+        bottom: 14px;
+      }
+      .linkmark {
+        position: absolute;
+        left: 2px;
+        top: 4px;
+        width: 16px;
+        height: 16px;
+        border-radius: 8px;
+        border: 1px solid #3a3a3c;
+        background: var(--screen);
+        display: grid;
+        place-items: center;
+      }
+      .linkmark svg {
+        width: 9px;
+        height: 9px;
+        stroke: var(--muted);
+      }
+      .top {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 14px;
+        color: var(--muted);
+        font-weight: 500;
+      }
+      .mono {
+        width: 15px;
+        height: 15px;
+        border-radius: 4px;
+        font-size: 7.5px;
+        font-weight: 700;
+        display: grid;
+        place-items: center;
+      }
+      .hw {
+        color: #34d399;
+        background: rgba(52, 211, 153, 0.18);
+      }
+      .pv {
+        color: #a78bfa;
+        background: rgba(167, 139, 250, 0.2);
+      }
+      .wu {
+        color: #38bdf8;
+        background: rgba(56, 189, 248, 0.18);
+      }
+      .le {
+        color: #fb7185;
+        background: rgba(251, 113, 133, 0.18);
+      }
+      .meta {
+        margin-left: auto;
+        font-size: 12px;
+        color: var(--tertiary);
+        font-variant-numeric: tabular-nums;
+      }
+      .meta.working {
+        color: var(--sky);
+        font-weight: 700;
+      }
+      .meta.done {
+        color: var(--emerald);
+        font-weight: 700;
+      }
+      .title {
+        margin-top: 4px;
+        font-size: 16px;
+        font-weight: 500;
+      }
+      .sub {
+        margin-top: 4px;
+        display: flex;
+        font-size: 12px;
+        color: var(--muted);
+        font-family: ui-monospace, "SF Mono", monospace;
+      }
+      .sub .claude {
+        margin-left: auto;
+        color: var(--claude);
+        font-family: inherit;
+      }
+      svg.i {
+        width: 12px;
+        height: 12px;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+      symbol {
+        fill: none;
+        stroke-width: 2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+      .dim {
+        filter: blur(6px) brightness(0.45);
+      }
+      .lifted {
+        position: absolute;
+        left: 12px;
+        right: 12px;
+        top: 150px;
+        background: #1c1c1e;
+        border-radius: 16px;
+        padding: 12px 14px;
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+      }
+      .menu {
+        position: absolute;
+        left: 70px;
+        right: 12px;
+        top: 262px;
+        background: rgba(44, 44, 46, 0.97);
+        border-radius: 14px;
+        overflow: hidden;
+        font-size: 16px;
+        box-shadow: 0 16px 50px rgba(0, 0, 0, 0.6);
+      }
+      .menu .item {
+        display: flex;
+        align-items: center;
+        padding: 11px 16px;
+        border-bottom: 0.5px solid #3a3a3c;
+      }
+      .menu .item svg {
+        margin-left: auto;
+        width: 17px;
+        height: 17px;
+        stroke: var(--fg);
+      }
+      .menu .gap {
+        height: 7px;
+        background: rgba(0, 0, 0, 0.35);
+      }
+      .menu .item.new {
+        background: rgba(10, 132, 255, 0.16);
+      }
+      .menu .item.danger {
+        color: #ff453a;
+        border-bottom: 0;
+      }
+      .menu .item.danger svg {
+        stroke: #ff453a;
+      }
+      .sheetwrap {
+        position: absolute;
+        inset: 60px 0 0;
+        background: var(--sheet);
+        border-radius: 12px 12px 0 0;
+      }
+      .sheethead {
+        display: flex;
+        align-items: center;
+        padding: 18px 20px 6px;
+      }
+      .sheethead b {
+        font-size: 20px;
+        font-weight: 600;
+        flex: 1;
+      }
+      .sheethead span {
+        color: var(--primary);
+      }
+      .sheetcap {
+        padding: 0 20px 12px;
+        color: var(--muted);
+        font-size: 14px;
+      }
+      .search {
+        margin: 0 16px 6px;
+        height: 44px;
+        border-radius: 22px;
+        background: #2c2c2e;
+        border: 1px solid #3a3a3c;
+        padding: 0 16px;
+        display: flex;
+        align-items: center;
+        color: var(--fg);
+      }
+      .search .caret {
+        width: 2px;
+        height: 20px;
+        background: var(--primary);
+        margin-left: 1px;
+      }
+      .cand {
+        display: flex;
+        align-items: center;
+        padding: 12px 20px;
+        border-bottom: 1px solid #2c2c2e;
+      }
+      .cand .proj {
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .cand .t {
+        font-size: 16px;
+        margin-top: 2px;
+      }
+      .cand svg {
+        margin-left: auto;
+        width: 13px;
+        height: 13px;
+        stroke: var(--muted);
+      }
+      .cand.pressed {
+        background: #2c2c2e;
+      }
+      .note {
+        margin-top: 22px;
+        color: var(--muted);
+        font-size: 13px;
+        max-width: 1250px;
+      }
+      .note b {
+        color: var(--fg);
+      }
+    </style>
+  </head>
+  <body>
+    <svg width="0" height="0" style="position: absolute">
+      <symbol id="link" viewBox="0 0 24 24">
+        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+        <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+      </symbol>
+      <symbol id="minus" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="9" />
+        <line x1="8" y1="12" x2="16" y2="12" />
+      </symbol>
+      <symbol id="check" viewBox="0 0 24 24"><path d="M5 12l5 5L20 7" /></symbol>
+      <symbol id="pin" viewBox="0 0 24 24">
+        <path d="M12 17v5" />
+        <path
+          d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"
+        />
+      </symbol>
+      <symbol id="pencil" viewBox="0 0 24 24">
+        <path d="M4 20h4L19 9l-4-4L4 16z" />
+      </symbol>
+      <symbol id="copy" viewBox="0 0 24 24">
+        <rect x="8" y="8" width="12" height="12" rx="2" />
+        <path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" />
+      </symbol>
+      <symbol id="trash" viewBox="0 0 24 24">
+        <path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" />
+      </symbol>
+    </svg>
+
+    <h1>Linked threads on iPhone</h1>
+    <p class="lead">
+      Phones have no drag-onto, so linking lives in the row's long-press menu. Linked threads sit
+      together inside each section (pinned, active, snoozed, settled), joined by a thin rail in the
+      left gutter; each follower is indented a little and carries a small link mark.
+    </p>
+
+    <div class="frames">
+      <!-- Frame 1: list -->
+      <div class="frame">
+        <h2>1. Home list with a linked group</h2>
+        <p class="cap">
+          "Share links for contracts" was created hours earlier, but it moves up under "Contract
+          review agent" because they're linked. No hairline between members.
+        </p>
+        <div class="phone">
+          <div class="status"><span>9:41</span><span>●●● ▮</span></div>
+          <div class="navtitle">Threads</div>
+          <div class="section">Pinned</div>
+          <div class="row">
+            <div class="content">
+              <div class="top">
+                <span class="mono hw">HW</span>howsitgoing<span class="meta working">Working</span>
+              </div>
+              <div class="title">Settle digest on Today</div>
+              <div class="sub">digest-today<span class="claude">✳</span></div>
+            </div>
+            <div class="divider"></div>
+          </div>
+          <div class="section">Active</div>
+          <div class="row first">
+            <div class="rail"></div>
+            <div class="content">
+              <div class="top">
+                <span class="mono le">LE</span>lexie<span class="meta">now</span>
+              </div>
+              <div class="title">Contract review agent</div>
+              <div class="sub">contract-review<span class="claude">✳</span></div>
+            </div>
+          </div>
+          <div class="row follower last">
+            <div class="rail"></div>
+            <div class="linkmark">
+              <svg class="i"><use href="#link" /></svg>
+            </div>
+            <div class="content">
+              <div class="top"><span class="mono wu">WU</span>wush<span class="meta">2h</span></div>
+              <div class="title">Share links for contracts</div>
+              <div class="sub">contract-links<span class="claude">✳</span></div>
+            </div>
+            <div class="divider"></div>
+          </div>
+          <div class="row">
+            <div class="content">
+              <div class="top">
+                <span class="mono pv">PV</span>playvesting<span class="meta done">Done</span>
+              </div>
+              <div class="title">Portfolio rebalance job</div>
+              <div class="sub">rebalance<span class="claude">✳</span></div>
+            </div>
+            <div class="divider"></div>
+          </div>
+          <div class="row">
+            <div class="content">
+              <div class="top"><span class="mono wu">WU</span>wush<span class="meta">3h</span></div>
+              <div class="title">Preview deploys per branch</div>
+              <div class="sub">preview-deploys<span class="claude">✳</span></div>
+            </div>
+            <div class="divider"></div>
+          </div>
+          <div class="row">
+            <div class="content">
+              <div class="top">
+                <span class="mono pv">PV</span>playvesting<span class="meta">5h</span>
+              </div>
+              <div class="title">Leaderboard caching</div>
+              <div class="sub">leaderboard<span class="claude">✳</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Frame 2: long-press menu -->
+      <div class="frame">
+        <h2>2. Long-press a row</h2>
+        <p class="cap">
+          "Link to thread…" is always there when the server supports linking. "Unlink thread"
+          appears only on a linked row and puts it back in its normal place.
+        </p>
+        <div class="phone">
+          <div class="dim">
+            <div class="status"><span>9:41</span><span>●●● ▮</span></div>
+            <div class="navtitle">Threads</div>
+            <div class="section">Active</div>
+            <div class="row"><div class="content" style="height: 200px"></div></div>
+          </div>
+          <div class="lifted">
+            <div class="top"><span class="mono wu">WU</span>wush<span class="meta">2h</span></div>
+            <div class="title">Share links for contracts</div>
+            <div class="sub">contract-links<span class="claude">✳</span></div>
+          </div>
+          <div class="menu">
+            <div class="item">
+              New thread on contract-links<svg class="i"><use href="#pencil" /></svg>
+            </div>
+            <div class="item">
+              Copy thread ID<svg class="i"><use href="#copy" /></svg>
+            </div>
+            <div class="item new">
+              Link to thread…<svg class="i"><use href="#link" /></svg>
+            </div>
+            <div class="item new">
+              Unlink thread<svg class="i"><use href="#minus" /></svg>
+            </div>
+            <div class="gap"></div>
+            <div class="item">
+              Settle<svg class="i"><use href="#check" /></svg>
+            </div>
+            <div class="item">
+              Pin<svg class="i"><use href="#pin" /></svg>
+            </div>
+            <div class="item">
+              Rename<svg class="i"><use href="#pencil" /></svg>
+            </div>
+            <div class="item danger">
+              Delete<svg class="i"><use href="#trash" /></svg>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Frame 3: picker -->
+      <div class="frame">
+        <h2>3. Pick the thread to link with</h2>
+        <p class="cap">
+          A page sheet lists other threads on the same server, most recent first, with a search
+          field. Tapping one links them; a link mark shows threads already in a group.
+        </p>
+        <div class="phone">
+          <div class="status dim"><span>9:41</span><span>●●● ▮</span></div>
+          <div class="sheetwrap">
+            <div class="sheethead"><b>Link to thread</b><span>Cancel</span></div>
+            <div class="sheetcap">
+              “Preview deploys per branch” will sit with the thread you pick.
+            </div>
+            <div class="search">contr<span class="caret"></span></div>
+            <div class="cand pressed">
+              <div>
+                <div class="proj">lexie</div>
+                <div class="t">Contract review agent</div>
+              </div>
+              <svg class="i"><use href="#link" /></svg>
+            </div>
+            <div class="cand">
+              <div>
+                <div class="proj">wush</div>
+                <div class="t">Share links for contracts</div>
+              </div>
+              <svg class="i"><use href="#link" /></svg>
+            </div>
+            <div class="cand">
+              <div>
+                <div class="proj">howsitgoing</div>
+                <div class="t">Contributor digest email</div>
+              </div>
+            </div>
+            <div class="cand">
+              <div>
+                <div class="proj">playvesting</div>
+                <div class="t">Contract notes export</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <p class="note">
+      <b>Same model as web.</b> Picking B for A gives A the group of B, else pulls B into A's group,
+      else starts a new group for both. Grouping is display-only: Move up/down and Arrange threads
+      keep working on the saved order. Both items are hidden on servers without the
+      <code>threadLinking</code> capability. The iPad sidebar uses the same rows and menu.
+    </p>
+  </body>
+</html>

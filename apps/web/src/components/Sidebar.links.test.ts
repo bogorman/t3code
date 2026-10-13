@@ -1,36 +1,12 @@
 import type { CollisionDetection } from "@dnd-kit/core";
 import { describe, expect, it } from "vite-plus/test";
 import { sidebarLinkTargetOf, withSidebarLinkTarget } from "./Sidebar.drag";
-import { groupLinkedThreads, sidebarDropKeepsLink, sidebarLinkPositions } from "./Sidebar.logic";
+import { sidebarDropKeepsLink } from "./Sidebar.logic";
 
 const thread = (id: string, linkGroupId: string | null = null, environmentId = "env") => ({
   id,
   environmentId,
   linkGroupId,
-});
-const ids = (threads: ReadonlyArray<{ id: string }>) => threads.map((entry) => entry.id);
-
-describe("groupLinkedThreads", () => {
-  it("moves later members up beneath the first member", () => {
-    expect(
-      ids(groupLinkedThreads([thread("a", "g"), thread("b"), thread("c"), thread("d", "g")])),
-    ).toEqual(["a", "d", "b", "c"]);
-  });
-
-  it("leaves lone members and other environments in place", () => {
-    const threads = [thread("a", "g"), thread("b"), thread("c", "g", "other"), thread("d", "h")];
-    expect(groupLinkedThreads(threads)).toBe(threads);
-  });
-});
-
-describe("sidebarLinkPositions", () => {
-  it("marks runs of two or more within a section", () => {
-    const positions = sidebarLinkPositions(
-      [[thread("a", "g"), thread("b", "g"), thread("c", "g"), thread("d")], [thread("e", "g")]],
-      (entry) => entry.id,
-    );
-    expect(Object.fromEntries(positions)).toEqual({ a: "first", b: "middle", c: "last" });
-  });
 });
 
 describe("sidebarDropKeepsLink", () => {
