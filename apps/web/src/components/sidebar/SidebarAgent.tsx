@@ -1,4 +1,5 @@
 import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/models";
+import type { AgentProjectSummary } from "@t3tools/client-runtime/state/thread-agent";
 import { resolveProjectSettings } from "@t3tools/shared/projectSettings";
 import { CopyIcon } from "lucide-react";
 import { useState } from "react";
@@ -82,14 +83,7 @@ export function SidebarAgentDetails(props: {
   );
 }
 
-export interface SidebarAgentProjectSummary {
-  readonly projectKey: string;
-  readonly displayName: string;
-  readonly active: number;
-  readonly needsYou: number;
-  /** A kept-on agent in this project that is offline, to nudge from the strip. */
-  readonly offlineKeptOn: NudgeableThread | null;
-}
+export type SidebarAgentProjectSummary = AgentProjectSummary<NudgeableThread>;
 
 /** Above the thread list: the projects with live agents, needing-you first. Click filters to it. */
 export function SidebarAgentStrip(props: {

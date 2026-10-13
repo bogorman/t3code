@@ -35,6 +35,7 @@ import { MaterialFloatingActionButton } from "../../components/MaterialFloatingA
 import type { WorkspaceEnvironment, WorkspaceState } from "../../state/workspaceModel";
 import type { SavedRemoteConnection } from "../../lib/connection";
 import { scopedProjectKey, scopedThreadKey } from "../../lib/scopedEntities";
+import { summarizeAgentProjects } from "@t3tools/client-runtime/state/thread-agent";
 import { NativePrimaryColumnContext } from "../../native/v5-workspace-context";
 import { nativeHeaderScrollEdgeEffects } from "../../native/scrollEdgeEffects";
 import {
@@ -80,6 +81,7 @@ import { SwipeableScrollGateProvider, useSwipeableScrollGate } from "./thread-sw
 import { useMaterialFabScroll } from "./MaterialFabScrollContext";
 import { useWorkspaceTabs } from "../workspace/WorkspaceTabsContext";
 import { ThreadListFilters } from "./ThreadListFilters";
+import { AgentsStrip } from "./AgentsStrip";
 import { ProjectPills } from "./ProjectPills";
 
 /* ─── Types ──────────────────────────────────────────────────────────── */
@@ -440,6 +442,24 @@ export function HomeScreen(props: HomeScreenProps) {
       ),
     [projectScopes],
   );
+  const agentProjects = useMemo(() => {
+    const scopeByProjectKey = new Map(
+      projectScopes.flatMap((scope) =>
+        scope.projectRefs.map(
+          (projectRef) =>
+            [
+              scopedProjectKey(projectRef.environmentId, projectRef.projectId),
+              { projectKey: scope.key, displayName: scope.title },
+            ] as const,
+        ),
+      ),
+    );
+    return summarizeAgentProjects({
+      threads: props.threads,
+      projectOf: (thread) =>
+        scopeByProjectKey.get(scopedProjectKey(thread.environmentId, thread.projectId)),
+    });
+  }, [projectScopes, props.threads]);
   const v2ScopedProjectKeys = useMemo(
     () =>
       v2ScopedProjectGroup === null
@@ -1000,6 +1020,13 @@ export function HomeScreen(props: HomeScreenProps) {
             onProjectChange={props.onProjectChange}
           />
         </ThreadListFilters>
+      ) : null}
+      {Platform.OS === "ios" && workspace ? (
+        <AgentsStrip
+          projects={agentProjects}
+          selectedProjectKey={props.selectedProjectKey}
+          onProjectChange={props.onProjectChange}
+        />
       ) : null}
     </>
   );

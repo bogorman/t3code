@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>T3 Code mobile: agents on threads (mockup)</title>
+    <style>
+      :root {
+        --screen: #000;
+        --fg: #f2f2f2;
+        --muted: #9a9a9a;
+        --tertiary: #6b6b6b;
+        --subtle: #1f1f21;
+        --hair: #232325;
+        --green: #22c55e;
+        --amber: #f59e0b;
+        --primary: #f2f2f2;
+        --primary-fg: #000;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        width: 390px;
+        background: var(--screen);
+        color: var(--fg);
+        font:
+          15px/1.35 -apple-system,
+          "SF Pro Text",
+          system-ui,
+          sans-serif;
+      }
+      .status {
+        height: 47px;
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        padding: 0 32px 6px;
+        font-weight: 600;
+        font-size: 16px;
+      }
+      .title {
+        padding: 6px 16px 8px;
+        font-size: 30px;
+        font-weight: 800;
+      }
+      .search {
+        margin: 0 16px 10px;
+        height: 36px;
+        border-radius: 12px;
+        background: var(--subtle);
+        color: var(--tertiary);
+        display: flex;
+        align-items: center;
+        padding: 0 12px;
+      }
+      .row {
+        display: flex;
+        gap: 8px;
+        padding: 0 16px 10px;
+        overflow: hidden;
+        white-space: nowrap;
+      }
+      .pill {
+        height: 32px;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        border-radius: 999px;
+        padding: 0 12px;
+        font-size: 14px;
+        font-weight: 500;
+        color: var(--muted);
+        background: rgba(255, 255, 255, 0.09);
+        box-shadow: inset 0 0 0 0.5px rgba(255, 255, 255, 0.14);
+        flex-shrink: 0;
+      }
+      .pill.active {
+        background: var(--primary);
+        color: var(--primary-fg);
+      }
+      .pill .chev {
+        font-size: 10px;
+        opacity: 0.7;
+      }
+      .pill .count {
+        font-weight: 400;
+        color: var(--tertiary);
+        font-variant-numeric: tabular-nums;
+      }
+      .pill.active .count {
+        color: var(--primary-fg);
+      }
+      .pill.offline {
+        background: none;
+        box-shadow: none;
+        border: 1px dashed var(--tertiary);
+        font-weight: 400;
+      }
+      .pill .nudge {
+        color: #3b9eff;
+        font-weight: 500;
+      }
+      .dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 999px;
+        flex-shrink: 0;
+      }
+      .dot.green {
+        background: var(--green);
+      }
+      .dot.amber {
+        background: var(--amber);
+      }
+      .dot.grey {
+        background: var(--tertiary);
+      }
+      .dot.dashed {
+        border: 1px dashed var(--tertiary);
+      }
+      .label {
+        padding: 10px 20px 4px;
+        font-size: 13px;
+        color: var(--tertiary);
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+      .thread {
+        padding: 11px 20px 11px;
+        border-bottom: 1px solid var(--hair);
+        margin-left: 0;
+      }
+      .thread .top {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+      }
+      .thread .name {
+        font-size: 16px;
+        font-weight: 500;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .thread .state {
+        font-size: 14px;
+        flex-shrink: 0;
+      }
+      .state.working {
+        color: var(--muted);
+      }
+      .state.input {
+        color: #fbbf24;
+      }
+      .state.time {
+        color: var(--tertiary);
+      }
+      .thread .meta {
+        margin-top: 4px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 13px;
+        color: var(--tertiary);
+      }
+      .fav {
+        width: 15px;
+        height: 15px;
+        border-radius: 4px;
+        font-size: 8px;
+        font-weight: 700;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: #000;
+      }
+      .spacer {
+        flex: 1;
+      }
+      .prov {
+        position: relative;
+        width: 14px;
+        height: 14px;
+        border-radius: 999px;
+        background: #d97757;
+        display: inline-block;
+      }
+      .prov.codex {
+        background: #e5e5e5;
+      }
+      .prov .agent {
+        position: absolute;
+        right: -4px;
+        bottom: -4px;
+        padding: 1.5px;
+        border-radius: 999px;
+        background: var(--screen);
+      }
+      .prov .agent .dot {
+        display: block;
+      }
+      .prov .agent .dot.dashed {
+        background: var(--screen);
+      }
+      .notes {
+        padding: 16px 20px 24px;
+        color: var(--muted);
+        font-size: 12.5px;
+      }
+      .notes b {
+        color: var(--fg);
+        font-weight: 600;
+      }
+      .notes li {
+        margin-bottom: 4px;
+      }
+      .notes ul {
+        padding-left: 16px;
+        margin: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="status"><span>9:41</span><span>100%</span></div>
+    <div class="title">Threads</div>
+    <div class="search">Search</div>
+
+    <!-- Existing filter row -->
+    <div class="row">
+      <span class="pill">All environments <span class="chev">▾</span></span>
+      <span class="pill active">lexie <span class="chev">▾</span></span>
+      <span class="pill" style="width: 32px; padding: 0; justify-content: center">✕</span>
+    </div>
+
+    <!-- New: agents strip -->
+    <div class="row">
+      <span class="pill active"
+        ><span class="dot amber"></span>lexie <span class="count">1</span></span
+      >
+      <span class="pill"
+        ><span class="dot green"></span>howsitgoing <span class="count">2</span></span
+      >
+      <span class="pill offline"
+        ><span class="dot dashed"></span>wush · offline <span class="nudge">Nudge</span></span
+      >
+      <span class="pill"
+        ><span class="dot green"></span>playvesting <span class="count">1</span></span
+      >
+    </div>
+
+    <div class="thread">
+      <div class="top">
+        <span class="name">Review the grammar drill flow</span
+        ><span class="state input">Needs input</span>
+      </div>
+      <div class="meta">
+        <span class="fav" style="background: #a78bfa">LX</span>lexie · main<span
+          class="spacer"
+        ></span
+        ><span class="prov"
+          ><span class="agent"><span class="dot amber"></span></span
+        ></span>
+      </div>
+    </div>
+    <div class="thread">
+      <div class="top">
+        <span class="name">Spaced repetition scheduler</span
+        ><span class="state working">Working 4m</span>
+      </div>
+      <div class="meta">
+        <span class="fav" style="background: #a78bfa">LX</span>lexie · srs-scheduler<span
+          class="spacer"
+        ></span
+        ><span class="prov codex"
+          ><span class="agent"><span class="dot green"></span></span
+        ></span>
+      </div>
+    </div>
+    <div class="thread">
+      <div class="top">
+        <span class="name">Lesson import from CSV</span><span class="state time">2h</span>
+      </div>
+      <div class="meta">
+        <span class="fav" style="background: #a78bfa">LX</span>lexie · main<span
+          class="spacer"
+        ></span
+        ><span class="prov"
+          ><span class="agent"><span class="dot grey"></span></span
+        ></span>
+      </div>
+    </div>
+    <div class="thread">
+      <div class="top">
+        <span class="name">Vocabulary audio cache</span><span class="state time">1d</span>
+      </div>
+      <div class="meta">
+        <span class="fav" style="background: #a78bfa">LX</span>lexie · audio-cache<span
+          class="spacer"
+        ></span
+        ><span class="prov codex"
+          ><span class="agent"><span class="dot dashed"></span></span
+        ></span>
+      </div>
+    </div>
+
+    <div class="notes">
+      <ul>
+        <li>
+          <b>Dot on the provider icon</b>: green working, amber needs you, grey idle, dashed
+          offline, none when no agent. Static, no pulse.
+        </li>
+        <li>
+          <b>Agents strip</b> under the filters: projects with live agents, needing-you first. Tap
+          scopes the list (here: lexie); tap again clears.
+        </li>
+        <li>
+          <b>Offline kept-on</b> agent: dashed chip with Nudge, which sends the project's nudge
+          message as a new turn.
+        </li>
+      </ul>
+    </div>
+  </body>
+</html>
