@@ -36,6 +36,7 @@ import {
   threadWokeAt,
 } from "@t3tools/client-runtime/state/thread-settled";
 import { createInboxReturnTracker } from "@t3tools/client-runtime/state/thread-inbox";
+import { summarizeAgentProjects } from "@t3tools/client-runtime/state/thread-agent";
 import { formatDiffCount } from "@t3tools/client-runtime/diff-count";
 import {
   resolveSettledThreadTimestamp,
@@ -220,7 +221,6 @@ import {
   type SidebarDropVerb,
   resolveSidebarAgentState,
   resolveSidebarThreadStatus,
-  sidebarAgentIsActive,
   resolveThreadLastVisitedAt,
   searchSidebarThreads,
   shouldCreateNewThreadInCurrentProject,
@@ -2665,44 +2665,17 @@ export default function Sidebar() {
   // while the popup search filters the same collection.
   // Projects with live agents, needing-you first, for the strip above the list.
   const agentProjects = useMemo((): SidebarAgentProjectSummary[] => {
-    const groupKeyByProject = new Map(
+    const groupByProject = new Map(
       projectGroups.flatMap((group) =>
         group.memberProjects.map(
           (project) => [`${project.environmentId}:${project.id}`, group] as const,
         ),
       ),
     );
-    const summaries = new Map<
-      string,
-      Omit<SidebarAgentProjectSummary, "projectKey"> & { active: number; needsYou: number }
-    >();
-    for (const thread of threads) {
-      if (thread.archivedAt !== null || thread.settledOverride === "settled") continue;
-      const state = resolveSidebarAgentState(thread);
-      const offlineKeptOn = state === "offline" && thread.keepAgentOnAt != null;
-      if (!sidebarAgentIsActive(state) && !offlineKeptOn) continue;
-      const group = groupKeyByProject.get(`${thread.environmentId}:${thread.projectId}`);
-      if (group === undefined) continue;
-      const summary = summaries.get(group.projectKey) ?? {
-        displayName: group.displayName,
-        active: 0,
-        needsYou: 0,
-        offlineKeptOn: null,
-      };
-      if (offlineKeptOn) {
-        summaries.set(group.projectKey, {
-          ...summary,
-          offlineKeptOn: summary.offlineKeptOn ?? thread,
-        });
-        continue;
-      }
-      summary.active += 1;
-      if (state === "needs-you") summary.needsYou += 1;
-      summaries.set(group.projectKey, summary);
-    }
-    return [...summaries.entries()]
-      .map(([projectKey, summary]) => ({ projectKey, ...summary }))
-      .toSorted((a, b) => b.needsYou - a.needsYou || b.active - a.active);
+    return summarizeAgentProjects({
+      threads,
+      projectOf: (thread) => groupByProject.get(`${thread.environmentId}:${thread.projectId}`),
+    });
   }, [projectGroups, threads]);
   const projectScopeItems = useMemo(
     () => [
