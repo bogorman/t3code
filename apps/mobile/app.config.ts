@@ -215,7 +215,8 @@ const sharingPlugin: NonNullable<ExpoConfig["plugins"]>[number] = [
       // Personal Teams cannot sign App Groups or extension targets. Keep the
       // reduced-capability local build usable while release builds expose the
       // real system share target.
-      enabled: !isIosPersonalTeamBuild,
+      // Custom-identity builds leave it out too: its App ID needs App Groups set up by hand.
+      enabled: !isIosPersonalTeamBuild && !isCustomIdentityBuild,
       extensionBundleIdentifier: `${iosBundleIdentifier}.sharing`,
       appGroupId: `group.${iosBundleIdentifier}`,
       activationRule: {
@@ -366,7 +367,7 @@ const config: ExpoConfig = {
     ],
     "expo-secure-store",
     "expo-sqlite",
-    ...(isIosPersonalTeamBuild
+    ...(isIosPersonalTeamBuild || isCustomIdentityBuild
       ? [sharingPlugin]
       : ["./plugins/withShareExtensionDisplayName.cjs", sharingPlugin]),
     [
