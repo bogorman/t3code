@@ -110,9 +110,23 @@ function resolveAppVariant(value: string | undefined): AppVariant {
 }
 
 const variant = VARIANT_CONFIG[APP_VARIANT];
+
+// A custom-identity build: a fork's own app under its own Apple team, beside
+// the official app. Its bundle id is not in clerk.t3.codes' app-site
+// association, so associated domains and Sign in with Apple are left out.
+const customBundleIdentifier = repoEnv.T3CODE_IOS_BUNDLE_ID?.trim() || undefined;
+const customAppleTeamId = repoEnv.T3CODE_IOS_TEAM_ID?.trim() || undefined;
+const customAppName = repoEnv.T3CODE_APP_NAME?.trim() || undefined;
+if (customBundleIdentifier && !IOS_BUNDLE_IDENTIFIER_PATTERN.test(customBundleIdentifier)) {
+  throw new Error(
+    "T3CODE_IOS_BUNDLE_ID must be a reverse-DNS identifier such as com.example.t3code.",
+  );
+}
+const isCustomIdentityBuild = customBundleIdentifier !== undefined;
+
 const iosBundleIdentifier = isIosPersonalTeamBuild
   ? personalTeamBundleIdentifier!
-  : variant.iosBundleIdentifier;
+  : (customBundleIdentifier ?? variant.iosBundleIdentifier);
 
 const dmSansFonts = {
   regular: "@expo-google-fonts/dm-sans/400Regular/DMSans_400Regular.ttf",
@@ -225,7 +239,7 @@ const sharingPlugin: NonNullable<ExpoConfig["plugins"]>[number] = [
 // family names without waiting for runtime font loading.
 
 const config: ExpoConfig = {
-  name: variant.appName,
+  name: customAppName ?? variant.appName,
   slug: "t3-code",
   platforms: ["ios", "android"],
   scheme: variant.scheme,
@@ -255,13 +269,17 @@ const config: ExpoConfig = {
     // Pin code signing to the T3 Tools team so non-interactive `expo run:ios`
     // does not fall back to a personal team (which cannot sign app groups,
     // Sign in with Apple, or push notification entitlements).
-    appleTeamId: "ARK85ZXQ4Z",
-    associatedDomains: [
-      `applinks:${variant.relyingParty}`,
-      `webcredentials:${variant.relyingParty}`,
-    ],
+    appleTeamId: customAppleTeamId ?? "ARK85ZXQ4Z",
+    ...(isCustomIdentityBuild
+      ? {}
+      : {
+          associatedDomains: [
+            `applinks:${variant.relyingParty}`,
+            `webcredentials:${variant.relyingParty}`,
+          ],
+        }),
     entitlements: {
-      "keychain-access-groups": [`$(AppIdentifierPrefix)${variant.iosBundleIdentifier}`],
+      "keychain-access-groups": [`$(AppIdentifierPrefix)${iosBundleIdentifier}`],
     },
     infoPlist: {
       UISupportedInterfaceOrientations: [
@@ -361,7 +379,13 @@ const config: ExpoConfig = {
     ],
     // appleSignIn must be gated here: withoutIosPersonalTeamCapabilities.cjs runs before
     // plugins earlier in this array, so it cannot strip the entitlement Clerk would add.
-    ["@clerk/expo", { theme: "./clerk-theme.json", appleSignIn: !isIosPersonalTeamBuild }],
+    [
+      "@clerk/expo",
+      {
+        theme: "./clerk-theme.json",
+        appleSignIn: !isIosPersonalTeamBuild && !isCustomIdentityBuild,
+      },
+    ],
     "expo-web-browser",
     [
       "expo-quick-actions",
