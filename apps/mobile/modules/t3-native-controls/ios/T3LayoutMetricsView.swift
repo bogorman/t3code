@@ -14,7 +14,9 @@ final class T3LayoutMetricsView: ExpoView {
     registerForTraitChanges([UITraitHorizontalSizeClass.self, UITraitVerticalSizeClass.self]) { (view: T3LayoutMetricsView, _: UITraitCollection) in
       view.publishMetrics()
     }
-    #if compiler(>=6.4)
+    // TeaTree: folding-iPad hinge support needs the iOS 27.1 SDK (Xcode 27.1, beta);
+    // our iPhone build uses Xcode 27.0, so it stays compiled out. Restore `compiler(>=6.4)` on 27.1.
+    #if compiler(>=6.4) && TEATREE_IOS_27_1_SDK
     if #available(iOS 27.1, *) {
       hasHinge = nil
       addInteraction(UIHingeInteraction { [weak self] _, update in
@@ -67,7 +69,9 @@ final class T3LayoutMetricsView: ExpoView {
     }
     var verticalBarEdge = "none"
     var regions: [[String: Any]] = []
-    #if compiler(>=6.4)
+    // TeaTree: folding-iPad hinge support needs the iOS 27.1 SDK (Xcode 27.1, beta);
+    // our iPhone build uses Xcode 27.0, so it stays compiled out. Restore `compiler(>=6.4)` on 27.1.
+    #if compiler(>=6.4) && TEATREE_IOS_27_1_SDK
     if #available(iOS 27.1, *) {
       let rtl = effectiveUserInterfaceLayoutDirection == .rightToLeft
       switch traitCollection.verticalBarEdge {
