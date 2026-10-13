@@ -93,3 +93,21 @@ Agents without OAuth support cannot connect.
 Approved agents appear under **Settings → Connections** like other clients.
 Revoke one there to cut off its access immediately. A sign-in lasts 30 days;
 after that the agent asks you to approve it again.
+
+## Badges on threads
+
+An agent with **Supervised** access or more can put a small badge on a thread with
+`t3_thread_badge_set`, for example a task tracker showing how many of its items for
+that thread are still open. The badge shows beside the pull request badge in the
+sidebar, with a label or count, an icon and a tooltip naming the agent that set it.
+Clicking it opens its link (http(s) or `t3code://`), the way pull request links open.
+
+- **One per key.** Setting the same key replaces the badge, and a count of 0 hides it.
+- **Limits.** A thread holds at most 3 badges, and an agent can only change or clear
+  (`t3_thread_badge_clear`) badges it set.
+- **Needs you.** `needsYou` takes a short reason, such as "2 to check": the badge
+  turns to the warning colour and the tooltip says why. A settled thread keeps its
+  badges but drops the mark.
+- **Housekeeping.** `expiresAt` hides a badge after that time, archiving a thread
+  clears its badges, and `t3_thread_read` and `t3_thread_list` return them.
+- **From inside the thread.** A thread's own agent can set badges on its thread.

@@ -2,6 +2,7 @@ import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import * as SchemaTransformation from "effect/SchemaTransformation";
 
+import { ThreadBadge } from "./threadBadge.ts";
 import {
   ContextTransferId,
   IsoDateTime,
@@ -319,6 +320,8 @@ export const OrchestratorMcpThreadListItem = Schema.Struct({
   snoozed: Schema.Boolean,
   /** When a snoozed thread wakes; null when it is not snoozed. */
   snoozedUntil: Schema.NullOr(IsoDateTime),
+  /** Badges outside tools put on the thread (t3_thread_badge_set). */
+  badges: Schema.optional(Schema.Array(ThreadBadge)),
   parentThreadId: Schema.NullOr(ThreadId),
   relationshipToParent: Schema.NullOr(Schema.Literals(["fork", "subagent"])),
   itemCount: NonNegativeInt,
@@ -377,6 +380,8 @@ export const OrchestratorMcpThreadDetail = Schema.Struct({
   snoozed: Schema.Boolean,
   /** When a snoozed thread wakes; null when it is not snoozed. */
   snoozedUntil: Schema.NullOr(IsoDateTime),
+  /** Badges outside tools put on the thread (t3_thread_badge_set). */
+  badges: Schema.optional(Schema.Array(ThreadBadge)),
   createdAt: IsoDateTime,
   updatedAt: IsoDateTime,
 });
@@ -399,6 +404,7 @@ export const OrchestratorMcpThreadTimelineItem = Schema.Struct({
   visibility: Schema.Literals(["local", "inherited", "synthetic"]),
   sourceThreadId: ThreadId,
   itemId: TurnItemId,
+  subagentId: Schema.optional(NodeId),
   runId: Schema.NullOr(RunId),
   messageId: Schema.NullOr(MessageId),
   createdBy: Schema.NullOr(OrchestrationV2Actor),
@@ -487,6 +493,8 @@ export const OrchestratorMcpProviderCapability = Schema.Struct({
       options: Schema.optional(Schema.Array(ProviderOptionDescriptor)),
     }),
   ),
+  /** Runtime modes the provider offers; omitted when it offers all of them. */
+  runtimeModes: Schema.optional(Schema.Array(RuntimeMode)),
   canRunChildTask: Schema.Boolean,
   canRunCrossProviderChildTask: Schema.Boolean,
   constraints: Schema.Array(Schema.String),
