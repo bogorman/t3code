@@ -15,7 +15,7 @@ tool: other tools talk to it through T3 Code's MCP server, links and settings.
 | **Message on settle:** a thread gets one more turn (e.g. a wrap-up skill) when it settles                                     | [#5](https://github.com/bogorman/t3code/issues/5) | `settle-prompt`      | built |
 | **Thread badges** from outside tools (MCP), with a needs-you mark                                                             | [#6](https://github.com/bogorman/t3code/issues/6) | `thread-badges`      | built |
 | **Agents on threads:** live-agent state, agent names, agents strip, `@agent` mentions, keep an agent on, Nudge                | [#7](https://github.com/bogorman/t3code/issues/7) | `thread-agents`      | built |
-| **Project pills** under the sidebar search, with a dot on projects whose hidden threads need you                              | [#8](https://github.com/bogorman/t3code/issues/8) | `project-pills`      | built |
+| **Project pills** under the sidebar search, wrapping, with each project's agent dot and count                                 | [#8](https://github.com/bogorman/t3code/issues/8) | `project-pills`      | built |
 | **Linked threads:** drag a thread onto another to keep them together in the sidebar                                           | [#9](https://github.com/bogorman/t3code/issues/9) | `thread-link-groups` | built |
 
 Each feature has its own branch off upstream `main` and its commits reference the issue. Mockups live with the
@@ -27,7 +27,8 @@ feature under [`docs/tea-tree/`](docs/tea-tree/).
 
 - **On each thread:** a dot on the provider icon shows its agent: working, needs you, idle or offline.
 - **Hover card:** the agent's name (`project/thread-title`), its state, Copy, and Nudge when offline.
-- **Agents strip:** above the list, projects with live agents, needing-you first; click to filter.
+- **Project pills** carry each project's agent dot (working, needs you, kept-on offline) and live agent count. With
+  only one project, an agents strip above the list shows the same, with Nudge.
 - **`@` in the composer:** finds threads by title or agent name, live agents first, so you can point one agent at
   another. Agents can also find each other with `t3_thread_list(agentName)` and message with `t3_thread_send`.
 - **Keep agent on** (thread menu): never auto-settled; if its session goes offline, T3 sends the project's

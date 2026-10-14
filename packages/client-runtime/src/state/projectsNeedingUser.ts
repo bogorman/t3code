@@ -1,4 +1,5 @@
 import type { EnvironmentThreadShell } from "./models.ts";
+import type { AgentProjectSummary } from "./threadAgent.ts";
 
 type ThreadNeedsUserInput = Pick<
   EnvironmentThreadShell,
@@ -35,4 +36,27 @@ export function projectKeysNeedingUser<
     if (projectKey !== undefined && projectKey !== input.selectedProjectKey) keys.add(projectKey);
   }
   return keys;
+}
+
+export type ProjectPillDot = "needs-you" | "working" | "offline";
+
+/**
+ * What a project pill shows: one dot (needs-you beats working beats an offline
+ * kept-on agent) and its live agent count. `hiddenNeedsUser` is the
+ * `projectKeysNeedingUser` mark; `agents` is the project's
+ * `summarizeAgentProjects` entry, if it has one.
+ */
+export function projectPillStatus(input: {
+  readonly hiddenNeedsUser: boolean;
+  readonly agents:
+    | Pick<AgentProjectSummary<unknown>, "active" | "needsYou" | "offlineKeptOn">
+    | undefined;
+}): { readonly dot: ProjectPillDot | null; readonly active: number } {
+  const active = input.agents?.active ?? 0;
+  if (input.hiddenNeedsUser || (input.agents?.needsYou ?? 0) > 0) {
+    return { dot: "needs-you", active };
+  }
+  if (active > 0) return { dot: "working", active };
+  if (input.agents?.offlineKeptOn != null) return { dot: "offline", active };
+  return { dot: null, active };
 }

@@ -188,7 +188,11 @@ import {
 import { formatRelativeTimeLabel, parseTimestampDate } from "../timestampFormat";
 import type { SidebarThreadSummary } from "../types";
 import { isScratchProject } from "@t3tools/client-runtime/state/projects";
-import { projectKeysNeedingUser as findProjectKeysNeedingUser } from "@t3tools/client-runtime/state/projects-needing-user";
+import {
+  projectKeysNeedingUser as findProjectKeysNeedingUser,
+  projectPillStatus,
+  type ProjectPillDot,
+} from "@t3tools/client-runtime/state/projects-needing-user";
 import type { EnvironmentProject } from "@t3tools/client-runtime/state/shell";
 import { cn } from "~/lib/utils";
 import { ThreadBadges } from "./ThreadBadges";
@@ -320,6 +324,29 @@ const EMPTY_PROVIDER_ENTRIES: ReadonlyMap<string, ProviderInstanceEntry> = new M
 // Collapsed shelves share one empty list so a route change alone does not
 // give the sidebar list a new identity.
 const EMPTY_THREADS: readonly EnvironmentThreadShell[] = [];
+
+const PROJECT_PILL_DOT_LABELS: Record<ProjectPillDot, string> = {
+  "needs-you": "Needs you",
+  working: "Agents working",
+  offline: "Kept-on agent offline",
+};
+
+const PROJECT_PILL_DOT_CLASSES: Record<ProjectPillDot, string> = {
+  "needs-you": "bg-warning",
+  working: "bg-success",
+  offline: "border border-dashed border-muted-foreground",
+};
+
+function projectPillTitle(
+  name: string,
+  status: { readonly dot: ProjectPillDot | null; readonly active: number },
+): string {
+  if (status.active > 0) {
+    const agents = `${status.active} active agent${status.active === 1 ? "" : "s"}`;
+    return status.dot === "needs-you" ? `${name}: ${agents}, needs you` : `${name}: ${agents}`;
+  }
+  return status.dot === null ? name : `${name}: ${PROJECT_PILL_DOT_LABELS[status.dot]}`;
+}
 
 const SETTLED_TAIL_INITIAL_COUNT = 10;
 const SETTLED_TAIL_PAGE_COUNT = 25;
@@ -2729,6 +2756,10 @@ export default function Sidebar() {
       projectOf: (thread) => groupByProject.get(`${thread.environmentId}:${thread.projectId}`),
     });
   }, [projectGroups, threads]);
+  const agentProjectByKey = useMemo(
+    () => new Map(agentProjects.map((project) => [project.projectKey, project] as const)),
+    [agentProjects],
+  );
   const projectScopeItems = useMemo(
     () => [
       { value: "all", label: "All projects" },
@@ -5438,42 +5469,60 @@ export default function Sidebar() {
             />
             {projectGroups.length > 1 ? (
               // One-click project scope: drives the same persisted scope as the
-              // menu above. Scrolls sideways so a long catalog keeps one row.
-              <div className="-mx-2 mt-1 overflow-x-auto px-2 [scrollbar-width:none]">
-                <ToggleGroup
-                  variant="default"
-                  size="segmented"
-                  aria-label="Filter threads by project"
-                  value={[projectScopeKey ?? "all"]}
-                  onValueChange={(value) => {
-                    const next = value[0];
-                    setProjectScopeKey(next === undefined || next === "all" ? null : next);
-                  }}
-                >
-                  <Toggle variant="pill" value="all">
-                    All
-                  </Toggle>
-                  {projectGroups.map((project) => (
-                    <Toggle key={project.projectKey} variant="pill" value={project.projectKey}>
+              // menu above, and wraps so every project stays in view. Each pill
+              // carries its agents' state dot and live agent count.
+              <ToggleGroup
+                variant="default"
+                size="segmented"
+                aria-label="Filter threads by project"
+                className="mt-1 flex-wrap"
+                value={[projectScopeKey ?? "all"]}
+                onValueChange={(value) => {
+                  const next = value[0];
+                  setProjectScopeKey(next === undefined || next === "all" ? null : next);
+                }}
+              >
+                <Toggle variant="pill" value="all">
+                  All
+                </Toggle>
+                {projectGroups.map((project) => {
+                  const status = projectPillStatus({
+                    hiddenNeedsUser: projectKeysNeedingUser.has(project.projectKey),
+                    agents: agentProjectByKey.get(project.projectKey),
+                  });
+                  return (
+                    <Toggle
+                      key={project.projectKey}
+                      variant="pill"
+                      value={project.projectKey}
+                      title={projectPillTitle(project.displayName, status)}
+                    >
                       <ProjectFavicon project={project} className="size-3.5" />
                       {project.displayName}
-                      {projectKeysNeedingUser.has(project.projectKey) ? (
+                      {status.dot === null ? null : (
                         <span
                           role="img"
-                          aria-label="Needs you"
-                          className="size-1.5 shrink-0 rounded-full bg-warning"
+                          aria-label={PROJECT_PILL_DOT_LABELS[status.dot]}
+                          className={cn(
+                            "size-1.5 shrink-0 rounded-full",
+                            PROJECT_PILL_DOT_CLASSES[status.dot],
+                          )}
                         />
+                      )}
+                      {status.active > 0 ? (
+                        <span className="tabular-nums opacity-70">{status.active}</span>
                       ) : null}
                     </Toggle>
-                  ))}
-                </ToggleGroup>
-              </div>
-            ) : null}
-            <SidebarAgentStrip
-              projects={agentProjects}
-              selectedProjectKey={projectScopeKey}
-              onSelect={setProjectScopeKey}
-            />
+                  );
+                })}
+              </ToggleGroup>
+            ) : (
+              <SidebarAgentStrip
+                projects={agentProjects}
+                selectedProjectKey={projectScopeKey}
+                onSelect={setProjectScopeKey}
+              />
+            )}
           </SidebarGroup>
         }
       >

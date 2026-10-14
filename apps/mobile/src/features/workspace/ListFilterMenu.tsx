@@ -1,4 +1,5 @@
 import { GlassView } from "expo-glass-effect";
+import type { ProjectPillDot } from "@t3tools/client-runtime/state/projects-needing-user";
 import type { ReactNode } from "react";
 import { Pressable, View } from "react-native";
 import { withUniwind } from "uniwind";
@@ -86,17 +87,41 @@ function PillSurface(props: { readonly active?: boolean; readonly children: Reac
   );
 }
 
-/** A one-tap filter chip styled like ListFilterMenu, with an optional needs-you dot. */
+const PILL_DOT_CLASSES: Record<ProjectPillDot, string> = {
+  "needs-you": "bg-amber-500",
+  working: "bg-emerald-500",
+  offline: "border border-dashed border-foreground-tertiary",
+};
+
+const PILL_DOT_LABELS: Record<ProjectPillDot, string> = {
+  "needs-you": "needs you",
+  working: "agents working",
+  offline: "kept-on agent offline",
+};
+
+/**
+ * A one-tap filter chip styled like ListFilterMenu, with an optional agent
+ * state dot and live agent count.
+ */
 export function ListFilterPill(props: {
   readonly label: string;
   readonly active: boolean;
-  readonly needsUser?: boolean;
+  readonly dot?: ProjectPillDot | null;
+  readonly count?: number;
   readonly onPress: () => void;
 }) {
+  const count = props.count ?? 0;
+  const accessibilityLabel = [
+    props.label,
+    count > 0 ? `${count} active agent${count === 1 ? "" : "s"}` : null,
+    props.dot ? PILL_DOT_LABELS[props.dot] : null,
+  ]
+    .filter((part) => part !== null)
+    .join(", ");
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={props.needsUser ? `${props.label}, needs you` : props.label}
+      accessibilityLabel={accessibilityLabel}
       accessibilityState={{ selected: props.active }}
       hitSlop={6}
       onPress={props.onPress}
@@ -111,7 +136,19 @@ export function ListFilterPill(props: {
         >
           {props.label}
         </Text>
-        {props.needsUser ? <View className="size-1.5 rounded-full bg-warning-foreground" /> : null}
+        {props.dot ? (
+          <View className={cn("size-1.5 rounded-full", PILL_DOT_CLASSES[props.dot])} />
+        ) : null}
+        {count > 0 ? (
+          <Text
+            className={cn(
+              "text-sm tabular-nums",
+              props.active ? "text-primary-foreground" : "text-foreground-tertiary",
+            )}
+          >
+            {count}
+          </Text>
+        ) : null}
       </PillSurface>
     </Pressable>
   );

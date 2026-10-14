@@ -1,5 +1,9 @@
 import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/models";
-import { projectKeysNeedingUser } from "@t3tools/client-runtime/state/projects-needing-user";
+import {
+  projectKeysNeedingUser,
+  projectPillStatus,
+} from "@t3tools/client-runtime/state/projects-needing-user";
+import { summarizeAgentProjects } from "@t3tools/client-runtime/state/thread-agent";
 import { useMemo } from "react";
 
 import { scopedProjectKey } from "../../lib/scopedEntities";
@@ -8,8 +12,9 @@ import type { HomeProjectScope } from "./homeThreadList";
 
 /**
  * One-tap project scope chips for the thread list filter row (TeaTree #8).
- * Tapping the selected pill clears the scope. While scoped, pills of other
- * projects show a dot when one of their hidden threads needs the user.
+ * Tapping the selected pill clears the scope. Each pill carries its agents'
+ * state dot and live agent count (TeaTree #7); while scoped, pills of other
+ * projects also turn needs-you when one of their hidden threads needs the user.
  * Renders nothing with fewer than two projects.
  */
 export function ProjectPills(props: {
@@ -21,22 +26,41 @@ export function ProjectPills(props: {
   readonly showAll?: boolean;
 }) {
   const { scopes, threads, selectedProjectKey } = props;
-  const needsUser = useMemo(() => {
-    if (selectedProjectKey === null) return new Set<string>();
-    const scopeKeyByProjectKey = new Map(
-      scopes.flatMap((scope) =>
-        scope.projectRefs.map(
-          (ref) => [scopedProjectKey(ref.environmentId, ref.projectId), scope.key] as const,
+  const scopeByProjectKey = useMemo(
+    () =>
+      new Map(
+        scopes.flatMap((scope) =>
+          scope.projectRefs.map(
+            (ref) => [scopedProjectKey(ref.environmentId, ref.projectId), scope] as const,
+          ),
         ),
       ),
-    );
-    return projectKeysNeedingUser({
+    [scopes],
+  );
+  const needsUser = useMemo(
+    () =>
+      selectedProjectKey === null
+        ? new Set<string>()
+        : projectKeysNeedingUser({
+            threads,
+            projectKeyOf: (thread) =>
+              scopeByProjectKey.get(scopedProjectKey(thread.environmentId, thread.projectId))?.key,
+            selectedProjectKey,
+          }),
+    [scopeByProjectKey, threads, selectedProjectKey],
+  );
+  const agentsByScopeKey = useMemo(() => {
+    const summaries = summarizeAgentProjects({
       threads,
-      projectKeyOf: (thread) =>
-        scopeKeyByProjectKey.get(scopedProjectKey(thread.environmentId, thread.projectId)),
-      selectedProjectKey,
+      projectOf: (thread) => {
+        const scope = scopeByProjectKey.get(
+          scopedProjectKey(thread.environmentId, thread.projectId),
+        );
+        return scope && { projectKey: scope.key, displayName: scope.title };
+      },
     });
-  }, [scopes, threads, selectedProjectKey]);
+    return new Map(summaries.map((summary) => [summary.projectKey, summary] as const));
+  }, [scopeByProjectKey, threads]);
 
   if (scopes.length < 2) return null;
   return (
@@ -50,12 +74,17 @@ export function ProjectPills(props: {
       ) : null}
       {scopes.map((scope) => {
         const active = scope.key === selectedProjectKey;
+        const status = projectPillStatus({
+          hiddenNeedsUser: needsUser.has(scope.key),
+          agents: agentsByScopeKey.get(scope.key),
+        });
         return (
           <ListFilterPill
             key={scope.key}
             label={scope.title}
             active={active}
-            needsUser={needsUser.has(scope.key)}
+            dot={status.dot}
+            count={status.active}
             onPress={() => props.onProjectChange(active ? null : scope.key)}
           />
         );

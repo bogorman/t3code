@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { projectKeysNeedingUser, threadNeedsUser } from "./projectsNeedingUser.ts";
+import {
+  projectKeysNeedingUser,
+  projectPillStatus,
+  threadNeedsUser,
+} from "./projectsNeedingUser.ts";
 
 type Runtime = { readonly status: string; readonly lastErrorClass?: string | null } | null;
 
@@ -74,5 +78,39 @@ describe("projectKeysNeedingUser", () => {
       selectedProjectKey: null,
     });
     expect(keys.size).toBe(0);
+  });
+});
+
+describe("projectPillStatus", () => {
+  const agents = (active: number, needsYou = 0, offlineKeptOn: unknown = null) => ({
+    active,
+    needsYou,
+    offlineKeptOn,
+  });
+
+  it("shows needs-you over working, with the live agent count", () => {
+    expect(projectPillStatus({ hiddenNeedsUser: false, agents: agents(3, 1) })).toEqual({
+      dot: "needs-you",
+      active: 3,
+    });
+    expect(projectPillStatus({ hiddenNeedsUser: true, agents: agents(2) })).toEqual({
+      dot: "needs-you",
+      active: 2,
+    });
+    expect(projectPillStatus({ hiddenNeedsUser: false, agents: agents(2) })).toEqual({
+      dot: "working",
+      active: 2,
+    });
+  });
+
+  it("marks an offline kept-on agent only when nothing is live", () => {
+    expect(projectPillStatus({ hiddenNeedsUser: false, agents: agents(0, 0, {}) })).toEqual({
+      dot: "offline",
+      active: 0,
+    });
+    expect(projectPillStatus({ hiddenNeedsUser: false, agents: undefined })).toEqual({
+      dot: null,
+      active: 0,
+    });
   });
 });

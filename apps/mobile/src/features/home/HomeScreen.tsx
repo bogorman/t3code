@@ -1025,7 +1025,8 @@ export function HomeScreen(props: HomeScreenProps) {
           />
         </ThreadListFilters>
       ) : null}
-      {Platform.OS === "ios" && workspace ? (
+      {/* With two or more projects the pills above carry the agent dots and counts. */}
+      {Platform.OS === "ios" && workspace && projectScopes.length < 2 ? (
         <AgentsStrip
           projects={agentProjects}
           selectedProjectKey={props.selectedProjectKey}
